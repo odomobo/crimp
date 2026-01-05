@@ -3,6 +3,14 @@
 
 #include <stddef.h>
 
+/////////////////////////////////
+// TESTING
+
+void foo();
+
+// TESTING
+/////////////////////////////////
+
 // TODO: mark function type typedef
 
 typedef struct {

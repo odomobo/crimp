@@ -2,7 +2,6 @@
 #include "crimp_gc.h"
 
 int main(void) {
-    printf("crimp_gc test program\n");
-    printf("Library linked successfully!\n");
+    foo();
     return 0;
 }
