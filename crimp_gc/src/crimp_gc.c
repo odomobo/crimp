@@ -2,24 +2,23 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <threads.h>
 #include "crimp_gc.h"
 
-static void* run(void* arguments)
-{
-    (void)arguments;
-    printf("yep, this seemed to run on another thread!\n");
-    sleep(1);
-    printf("ok, worker thread exiting\n");
-    return NULL;
+// TODO: use thread_local for stuff, like this:
+// thread_local int tl = 0;
+
+void crimp_gc_init() {
+    log("[crimp_gc_init] entered\n");
+    log("[crimp_gc_init] exited\n");
 }
 
-void foo()
-{
-    printf("called foo\n");
+void crimp_gc_thread_register() {
+    log("[crimp_gc_thread_register] entered\n");
+    log("[crimp_gc_thread_register] exited\n");
+}
 
-    pthread_t thread;
-    int result_code = pthread_create(&thread, NULL, run, NULL);
-    assert(!result_code);
-    pthread_join(thread, NULL);
-    printf("joined!\n");
+void crimp_gc_thread_unregister() {
+    log("[crimp_gc_thread_unregister] entered\n");
+    log("[crimp_gc_thread_unregister] exited\n");
 }

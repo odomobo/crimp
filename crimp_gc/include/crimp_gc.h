@@ -2,14 +2,29 @@
 #define CRIMP_GC
 
 #include <stddef.h>
+#include <stdbool.h>
 
 /////////////////////////////////
 // TESTING
 
-void foo();
+#define log(...) do{fprintf(stderr, __VA_ARGS__);}while(false)
+// #define log(...) 
 
 // TESTING
 /////////////////////////////////
+
+/////////////////////////////////
+// INIT
+
+void crimp_gc_init();
+void crimp_gc_thread_register();
+void crimp_gc_thread_unregister();
+
+// INIT
+/////////////////////////////////
+
+/////////////////////////////////
+// TYPES
 
 // TODO: mark function type typedef
 
@@ -20,6 +35,9 @@ typedef struct {
 } crimp_type;
 
 typedef struct crimp_gc_slot_internal* crimp_gc_slot;
+
+// TYPES
+/////////////////////////////////
 
 /////////////////////////////////
 // HANDLES
