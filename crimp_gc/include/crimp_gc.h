@@ -13,11 +13,13 @@ struct crimp_gc_thread_t;
 typedef struct crimp_gc_thread_t {
     int thread_id;
     struct crimp_gc_thread_t* next_thread;
+    // TODO: roots shadow stack
+    // TODO: thread local mutex
 } crimp_gc_thread_t;
 
 extern thread_local crimp_gc_thread_t* _crimp_gc_thread;
 
-// TODO: mark function type typedef
+// TODO: "mark function" type typedef
 
 typedef struct crimp_type_t {
 	// TODO: mark function
@@ -49,7 +51,10 @@ extern pthread_mutex_t _crimp_gc_log_mutex;
 /////////////////////////////////
 // INIT
 
+// TODO: global roots list
+
 void crimp_gc_init();
+void crimp_gc_global_roots_register();  // TODO: signature to support global roots
 void crimp_gc_thread_register();
 void crimp_gc_thread_unregister();
 

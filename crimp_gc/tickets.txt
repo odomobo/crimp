@@ -1,9 +1,4 @@
 
----------- TICKET 001
-Title    : Implement gc init and thread register
-Status   : IN PROGRESS
-----------
-
 ---------- TICKET 002
 Title    : Have crimp_gc_collect wake collector thread
 Status   : PENDING
@@ -12,10 +7,40 @@ Status   : PENDING
 ---------- TICKET 003
 Title    : Implement basic allocation
 Status   : PENDING
-
 ----------
 
 ---------- TICKET 004
+Title    : Create a few test class types
+Status   : PENDING
+----------
+
+---------- TICKET 005
+Title    : Get global roots working
+Status   : PENDING
+----------
+
+---------- TICKET 006
+Title    : Implement collection just with global roots
+Status   : PENDING
+----------
+
+---------- TICKET 007
+Title    : Work on roots shadow stack 
+Status   : PENDING
+----------
+
+---------- TICKET 008
+Title    : Eventually handles
+Status   : PENDING
+----------
+
+---------- TICKET 009
+Title    : Windows compatibility
+Status   : ICE BOX
+    This is way down the road... we'll need to make our own wrappers, and use them extensively.
+----------
+
+---------- TICKET 010
 Title    : 
 Status   : PENDING
 
