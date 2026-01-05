@@ -1,0 +1,81 @@
+
+---------- TICKET 001
+Title    : Write basic tickets
+Target   : 0.01
+Status   : IN PROGRESS
+----------
+
+---------- TICKET 002
+Title    : Create basic language specification
+Target   : 0.02
+Status   : PENDING
+    This should be the full parsing specification for the minimal viable product for the language
+----------
+
+---------- TICKET 003
+Title    : Create language lexer
+Target   : 0.03
+Status   : PENDING
+----------
+
+---------- TICKET 004
+Title    : Create language parser
+Target   : 0.04
+Status   : PENDING
+----------
+
+---------- TICKET 005
+Title    : Create code generator
+Target   : 0.05
+Status   : PENDING
+----------
+
+---------- TICKET 006
+Title    : Implement c ffi
+Target   : 0.06
+Status   : PENDING
+----------
+
+---------- TICKET 009
+Title    : Implement gc
+Target   : 0.07
+Status   : PENDING
+----------
+
+---------- TICKET 011
+Title    : Implement namespacing
+Target   : 0.98
+Status   : PENDING
+----------
+
+---------- TICKET 007
+Title    : Implement exception handling
+Target   : 0.99
+Status   : PENDING
+----------
+
+---------- TICKET 008
+Title    : Implement "defer" keyword
+Target   : 0.99
+Status   : PENDING
+----------
+
+---------- TICKET 010
+Title    : Implement generics
+Target   : 0.99
+Status   : PENDING
+----------
+
+---------- TICKET 012
+Title    : Create full language specification
+Target   : 0.99
+Status   : PENDING
+    This needs to have sections detailing every language decision in depth. Part of the purpose of having the language be "lightweight" in terms of its specification is so this document can be small and easy to understand. A skilled programmer should be able to go through it in a weekend and know every aspect of the language, and all the key aspects of its implementation.
+----------
+
+---------- TICKET 013
+Title    : 
+Target   : 0.99
+Status   : PENDING
+    
+----------
