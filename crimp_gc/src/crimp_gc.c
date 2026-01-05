@@ -13,17 +13,23 @@ pthread_mutex_t _crimp_gc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 thread_local crimp_gc_thread_t* _crimp_gc_thread = NULL;
 
 // this mutex is used for every global gc lock, which should be very rare anyhow
-pthread_mutex_t _crimp_gc_mutex = PTHREAD_MUTEX_INITIALIZER;
-// changes to this need to be locked with thread_list_lock
+pthread_mutex_t _crimp_gc_gc_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+////////////////////////////////////////////////////////////
+// These need to be locked with _crimp_gc_gc_mutex to be used
+
 int _crimp_gc_next_thread_id = 0;
 crimp_gc_thread_t* _crimp_gc_thread_list = NULL;
+
+// End locked globals
+////////////////////////////////////////////////////////////
 
 pthread_t _crimp_gc_collector_pthread;
 
 void print_thread_list()
 {
     printf("thread list: [");
-    pthread_mutex_lock(&_crimp_gc_mutex);
+    pthread_mutex_lock(&_crimp_gc_gc_mutex);
     {
         crimp_gc_thread_t* t = _crimp_gc_thread_list;
         while(t != NULL)
@@ -32,7 +38,7 @@ void print_thread_list()
             t = t->next_thread;
         }
     }
-    pthread_mutex_unlock(&_crimp_gc_mutex);
+    pthread_mutex_unlock(&_crimp_gc_gc_mutex);
     printf("]\n");
 }
 
@@ -74,21 +80,21 @@ void crimp_gc_thread_register() {
     log("entered");
     _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
 
-    pthread_mutex_lock(&_crimp_gc_mutex);
+    pthread_mutex_lock(&_crimp_gc_gc_mutex);
     {
         _crimp_gc_thread->thread_id = _crimp_gc_next_thread_id++;
         // add to threads list
         _crimp_gc_thread->next_thread = _crimp_gc_thread_list;
         _crimp_gc_thread_list = _crimp_gc_thread;
     }
-    pthread_mutex_unlock(&_crimp_gc_mutex);
+    pthread_mutex_unlock(&_crimp_gc_gc_mutex);
     log("exited");
 }
 
 void crimp_gc_thread_unregister() {
     log("entered");
     
-    pthread_mutex_lock(&_crimp_gc_mutex);
+    pthread_mutex_lock(&_crimp_gc_gc_mutex);
     {
         // remove from threads list
         crimp_gc_thread_t** t_ref = &_crimp_gc_thread_list;
@@ -106,7 +112,7 @@ void crimp_gc_thread_unregister() {
             t_ref = &(*t_ref)->next_thread;
         }
     }
-    pthread_mutex_unlock(&_crimp_gc_mutex);
+    pthread_mutex_unlock(&_crimp_gc_gc_mutex);
     free(_crimp_gc_thread);
     _crimp_gc_thread = NULL;
     log("exited");
