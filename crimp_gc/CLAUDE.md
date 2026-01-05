@@ -21,9 +21,10 @@ Uses CMake with:
 
 ### Build Commands
 ```bash
-cmake -B build
-cmake --build build
-make run_tests  # Build and run tests
+cd build
+cmake ..
+make
+make run_tests
 ```
 
 ## API Overview
