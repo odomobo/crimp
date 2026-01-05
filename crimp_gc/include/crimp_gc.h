@@ -1,6 +1,8 @@
 #ifndef CRIMP_GC
 #define CRIMP_GC
 
+#include <stddef.h>
+
 // TODO: mark function type typedef
 
 typedef struct {
