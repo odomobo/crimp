@@ -11,15 +11,16 @@ static void* run(void* arguments)
 {
     (void)arguments;
     crimp_gc_thread_register();
-    log("[run] yep, this seemed to run on another thread!\n");
-    log("[run] tl is %d; setting to 3\n", tl);
+    log("yep, this seemed to run on another thread!");
+    log("tl is %d; setting to 3", tl);
     tl = 3;
-    log("[run] pausing...");
+    log("pausing...");
     fflush(stdout);
     usleep(200 * 1000); // 200 ms
-    log(" done!\n");
-    log("[run] tl is still %d\n", tl);
-    log("[run] ok, worker thread exiting\n");
+    log("done!");
+    print_thread_list();
+    log("tl is still %d", tl);
+    log("ok, worker thread exiting");
     crimp_gc_thread_unregister();
     return NULL;
 }
@@ -27,20 +28,22 @@ static void* run(void* arguments)
 void foo()
 {
     tl = 1;
-    log("[foo] set tl to 1\n");
+    log("set tl to 1");
 
     pthread_t thread;
     int result_code = pthread_create(&thread, NULL, run, NULL);
     assert(!result_code);
     pthread_join(thread, NULL);
-    log("[foo] joined!\n");
-    log("[foo] tl is still %d\n", tl);
+    log("joined!");
+    log("tl is still %d", tl);
 }
 
 int main(void) {
     crimp_gc_init();
     crimp_gc_thread_register();
+    print_thread_list();
     foo();
+    print_thread_list();
     crimp_gc_thread_unregister();
     return 0;
 }
