@@ -1,0 +1,22 @@
+
+---------- TICKET 001
+Title    : Implement gc init and thread register
+Status   : IN PROGRESS
+----------
+
+---------- TICKET 002
+Title    : Have crimp_gc_collect wake collector thread
+Status   : PENDING
+----------
+
+---------- TICKET 003
+Title    : Implement basic allocation
+Status   : PENDING
+
+----------
+
+---------- TICKET 004
+Title    : 
+Status   : PENDING
+
+----------

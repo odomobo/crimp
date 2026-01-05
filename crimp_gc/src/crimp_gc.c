@@ -45,12 +45,17 @@ void print_thread_list()
 static void* _crimp_gc_collector(void* arguments) {
     (void)arguments;
     log("entered");
-    
-    sleep(9999); // simulate doing nothing
-    // TODO: need to be able to be woken up
-    // TODO: need to be able to read from threads list
-    // TODO: need to be aware when a thread has died
-    log("exited");
+
+    // TODO: need to figure out if the process will be kept alive just because this thread is still executing; in fact, I don't think this thread can 
+    while (true) {
+
+        sleep(9999); // simulate waiting to be woken up
+        // TODO: need to be able to be woken up
+        // TODO: need to be able to read from threads list
+        // TODO: need to be aware when a thread has died
+    }
+
+    // we can't actually reach here...
     return NULL;
 }
 
@@ -63,6 +68,7 @@ void crimp_gc_init() {
     // we only do this for logging purposes
     // TODO: we should probably remove this eventually, if we don't need it for logging
     _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
+    assert(_crimp_gc_thread != NUll); // TODO: better check
     _crimp_gc_thread->thread_id = -1;
 
     // end init for gc_collector thread
@@ -79,6 +85,7 @@ void crimp_gc_init() {
 void crimp_gc_thread_register() {
     log("entered");
     _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
+    assert(_crimp_gc_thread != NUll); // TODO: better check
 
     pthread_mutex_lock(&_crimp_gc_gc_mutex);
     {
