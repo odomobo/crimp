@@ -168,7 +168,7 @@ RTTI can be used to implement things like json encoding and decoding, ORM, etc, 
 ## Generics
 I don't know how to implement them, but we definitely need them, one way or another. I'm not sure how we prevent code duplication all over the place.
 
-I'm also not sure how we should handle reification. Do we just make tons of copies of things willy-nilly? Also, in order for other code to use our library's generics, does that mean we need to distribute the source code for this particular generic? Do we take java's silly approach to generics? Need to ponder on this......
+I'm also not sure how we should handle monomorphization. Do we just make tons of copies of things willy-nilly? Also, in order for other code to use our library's generics, does that mean we need to distribute the source code for this particular generic? Do we take java's silly approach to generics? Need to ponder on this......
 
 All I know is, we need generics, in some form or another!
 
@@ -247,6 +247,24 @@ If a function is inlineable, then its code needs to be provided in the module pa
 
 In general, when building against a module package, you don't necessarily need the source code, but you need more than just the dll. In the case of inline functions, their source code needs to be provided.
 
+Actually, "inline" functions should really be "source-provided" functions. Because it won't only be used for inlining - it'll also be used for any kind of monomorphization. Even though they are used the same way, it should be immediately apparent to the programmer when a source-provided generic function is calling a dynamic generic function, and it should be a warning (which can be disabled). Actually, source-provided functions should be able to be called either way. So, for example:
+
+void @Foo<T>(T value) {
+	Bar<T>(value); // warning; source-provided generic function calling a dynamic generic function
+	Quux<T>(value); // warning; source-provided generic function calling a dynamic generic function
+	@Quux<T>(value); // no warning; this should be efficient; if Foo is called dynamically, this will use the dynamic version as well
+}
+
+Note that the type parameters will be optional when calling the functions, since it can be inferred. Syntactically, maybe we should keep the <>, just to make it obvious that it's a generic function, since generics have special considerations. Like this:
+
+void @Foo<TType>(TType value) {
+	@Quux<>(value);
+}
+
+In that example, Foo is source-provided, Bar is a dynamic-only generic function. Quux is a source-provided generic function, but we call it both in its dynamic form as well as its source-provided form. The last one is the only one that has some guarantee of optimization.
+
+One key aspect: when exporting to c, you can choose to export the dynamic generic version of classes and functions, as well as specific concrete versions of classes and functions (which are forced to be monomorphized). Modules are responsible for their own monomorphization, which is never DLL exported to other libraries, so that can cause bloat if used incorrectly.
+
 
 ## compiler implementation
 initially, the compiler will be written in c#, and will read crimp files and output c files. Once that has sufficient basic functionality, then a standard library will be developed, and a self-hosting compiler (using the same paradigm) will be implemented.
@@ -259,9 +277,165 @@ I long had this idea that a fat pointer would be a single structure that contain
 ## traits
 Classes, structs, and primitives can all have traits. Boxed and unboxed versions of the same primitives have the same traits (or at least, the same trait behavior). However, pointers to structs don't have that trait behavior (pointers have their own traits).
 
+Let's handle traits the way rust does (although maybe we'll use implicit instead of explicit implementations... like duck typing). As long as we can attach traits to arbitrary types (including types we don't own), this will give us the ability to perform operator overloading.
+
+So for example:
+
+trait Add<Rhs=Self> {
+    type Output;
+
+    fn add(self, rhs: Rhs) -> Self::Output;
+}
+
+impl Add<BigInt> for int {
+    type Output = BigInt;
+
+    fn add(self, other: BigInt) -> BigInt {
+        return other.AddInt(self);
+    }
+}
+
+Something like that anyhow. The general rule is: only export traits either for a type you own, or which parameterize on a type you own. Otherwise, if you depend on 2 libraries which implement the same trait, then you'd get a linker error. Not good!!!!
+
 
 ## custom traits
 That is, if you want to provide your own trait (or multiple traits) for some class or struct, maybe you can, but you have to be explicit if using any trait other than the default... No... this is no good!
+
+Another way to say that: there can only be one implementation of a particular trait, for a type with particular type parameters.
+
+
+## Trait implementations parameterized on other traits
+This is getting so confusing. What about if we have something like:
+
+trait Add2<Rhs=Self> {
+    type Output;
+
+    fn add2(self, rhs: Rhs) -> Self::Output;
+}
+
+and then we have an implementation like:
+
+impl @Add2<Add> for Add {
+    type Output = Add;
+
+    fn add(self, other: Add) -> Add {
+        return other.Add(self);
+    }
+}
+
+Ok, there's a lot going on here. Let's unpack...
+
+We have a source-provided implementation of Add2 that works for any combination of Add types. Interestingly, its output is always going to be a fat pointer, even if it's monomorphized somehow. I think this is the correct way to do it (without requiring a fat pointer):
+
+impl @Add2<Add> for Add {
+    type Output = Rhs::Output;
+
+    fn add(self, other: Add) -> Output {
+        return other.Add(self);
+    }
+}
+
+But then, when there's a source-provided trait, how do you specify that implementation instead of the dynamic implementation... this is where it gets very confusing to me.
+
+Maybe traits are _always_ source-provided. And they provide duck-typing into a method for the type they're acting upon... no, that's not right. We might need the following:
+
+impl Add<int> for Foo {
+    type Output = int;
+
+    fn add(self, other: int) -> int {
+        // special int logic
+    }
+}
+
+impl Add<float> for Foo {
+    type Output = float;
+
+    fn add(self, other: float) -> float {
+        // special float logic
+    }
+}
+
+We can't do duck typing there.
+
+There's another problem:
+
+impl Iterator for Counter {
+    type Item = u32;
+
+    fn next(&mut self) -> Self::Item { ...
+}
+
+impl Iterator for FCounter {
+    type Item = f32;
+
+    fn next(&mut self) -> Self::Item { ...
+}
+
+??? Foo(Iterator it) {
+	return it.first();
+}
+
+What kind of return type does Foo have? Iterator knows its own return type, but we certainly don't know it at compile time.
+
+
+## Not traits, but interfaces
+Ok, I talked on and on at length about traits. I don't think I want traits. I think I want interfaces, the way C# does it. I'm trying to think of how they interact with source-provided implementations, but I think I've got it:
+
+interface IFoo<T> : where T is IBar {
+	T @Baz(Self other);
+	T Quux(Self other);
+}
+
+This is saying that Baz must be source-provided, but there's no such requirement for Quux. It's limiting because it's fundamentally duck-typed (unless we provide workarounds for it, which... maybe!), but the approach is good, because now there are no unspecified return values.
+
+
+## operator overloading
+Maybe we should support this at some point, but for now, it's out of scope. Honestly, it's probably a good idea.........
+
+
+## The relationship between generics, interfaces, and source-provided functions
+Honestly, I haven't really figured out the relationship between generics and interfaces, but there are 3 rules I'd like to enforce:
+
+1. Any generic function/method or method on generic type must be source-provided.
+2. Any generic function/method or method on generic type will always have a dynamic monomorphization, which uses dynamic dispatch everywhere, calls the dynamic monomorphization of other classes.
+3. When a generic function/method or method on generic type calls another generic, it must call the source-provided version (else face a strong warning).
+
+This means that if you wish to use the dynamic monomorphization of a particular generic function/method, then it will not cause additional monomorphization (only the ones that come with the language). But, if you choose, you can always use the concrete monomorphization, which will cause a chain of monomorphizations to all be created. So, as the programmer, you can control the number of monomorphizations. Maybe you can even get statistics on that if you wish.
+
+This has a good property, which hopefully is obvious, but not necessarily: if a function is concrete (not generic), it's not possible for it to ever call more than one monomorphization of an individual generic function. It concretely knows the monomorphization it will be using (possibly the dynamic one).
+
+Another interesting property is that monomorphization cannot be triggered by non-generic (concrete) functions. This is unlike rust, I believe, which will do monomorphization on its own. In crimp, you have control over monomorphization.
+
+One other thing: each monomorphism of a generic type will have a vtable, so that all of its methods can be called from a dynamic context (dynamic dispatch).
+
+
+## inline vs monomorphization
+These are both things that require source-provided functions, but they serve different purposes. When calling inline functions, honestly, the programmer shouldn't have to think about it. It should just happen automatically, due to the performance benefits (and negligible code bloat, enforced by the compiler). On the other hand, when calling a generic function, the programmer should explicitly specify whether they want the generic or concrete version. Also:
+
+1. If a function is inline, and they specify the generic version, and the concrete version is inlineable, it should do that (that will be the highest performance).
+2. Otherwise, if the concrete version isn't inlineable, but the generic version is, it should inline the generic version (that's what they actually asked for).
+3. Otherwise, if the function is specified as inline, but it's not inlineable as either the generic version nor the concrete version, then it shouldn't be inlined and the generic version should be called (they asked to call the generic version).
+
+What syntax to use when specifying the concrete or generic form of a function or method?
+
+foo<int>(int bar);
+@foo<int>(int bar);
+
+g.baz<int>(int bar);
+g.@baz<int>(int bar);
+
+Seems pretty good to me.
+
+I still feel like I'm missing something around calling the generic form of a function, and automatic boxing. Like for example, something like:
+
+my_append<T>(IAppendable<T> appendable, T value) {
+	appendable.append(value);
+}
+
+List<int> list;
+my_append(list, 10);
+
+I guess 10 would have to get boxed, and then later unboxed. Wait, no! In cases like this, value types are passed by read-only reference. Yeah, that's right; templated value-types are passed by read-only reference, when using a dynamic monomorphization of a generic function, and they're treated as copy-on-write. And the caller makes a copy of the value type (if necessary) before passing it. If that value was anywhere but on the stack already.
 
 
 ## c helper functions
