@@ -1,0 +1,270 @@
+# 2026-01-05
+
+Here are some random thoughts I want to try to get on paper, because I'll be taking a break from my project for a while, and I want to be able to pick it back up where I left it.
+
+
+## out of memory
+First off, how to handle out of memory errors. The simplest approach would be to simply crash the application, with a stacktrace and a coredump (ideally). This is the default behavior for go and rust (apparently, at least according to claude), so I'd be in good company. Plus, if there was a failed allocation, that's a sign that we might not be able to recover.
+
+Rather, the only practical way to avoid this is: if there's an application with potentially unbound memory usage, which can regulate its memory usage, it can observe how much memory it's using and actively use strategies to prevent using too much.
+
+
+## SIGTERM/SIGHUP/SIGINT
+Don't handle it at a language level. Let users set it at the C level if they want anything other than default behavior. There's no single approach that works universally (like throwing exceptions)
+
+
+## DLL_EXPORT
+Need to have the build script give everything private visibility by default, and only export necessary symbols.
+
+
+## crimp/native code mixed
+Basically every crimp module will be mixed with native code and crimp code. Technically both are unnecessary, but I expect that most libraries will have both, and some applications will only have crimp code.
+
+The build process will be like this: First, the crimp code will be analyzed, and will build a generated header that will be imported by the c code. Then, the native code and the crimp code will build object files. The native code will be controlled by a user-created cmake script, and the crimp code will generate c files, which will get built using a cmake script. Finally, once both object files are there, they will be linked into a dll or exe file.
+
+This whole build process will be orchestrated by cmake (although in the future, most of it will be handled by the crimp build tool ideally).
+
+
+## exported symbols from crimp to native code
+The idea is: instead of maintaining a header file for your C code, you will maintain a "crimp-header" file (need a better name?), which will do 2 things:
+
+1. It will export to a header file that can be used by your c code, including c structs, function names, etc (although it'll be lightweight compared to the full functionality of header files).
+2. It will inform the crimp code which c functions can be called and which c structs can be used.
+
+You still have the c problem of double maintenance, but at least it's only in 2 places instead of 3 places: a C header file, a C source file, and a language-specific file.
+
+Maybe someday you'll be able to export your c functions to be used by other modules too. Cause why not, it could be useful!
+
+
+## crimp export list
+There will also be some convenient way of exporting relevant stuff to c. Think of it like "import" statements at the top of a file. You want to only include the things you'll be using.
+
+So, crimp will have an "export" list file, which will specify what to export. In addition, it'll have some rules around how the exported functions will be namespaced. It'll optionally give them short aliases for ease of use.
+
+So, for example, the "export" file might look like:
+
+```
+export foo.bar.Type as Type;
+from foo.baz export * as baz_*;
+export foo.quux;
+```
+
+And then, it would create a header file that would look like:
+
+```
+typedef struct crimp_foo_bar_Type {...} crimp_foo_bar_Type;
+typedef crimp_foo_bar_Type Type;
+
+crimp_Exception* crimp_foo_baz_first(int i);
+#define baz_first crimp_foo_baz_first
+
+crimp_Exception* crimp_foo_baz_second(double d);
+#define baz_second crimp_foo_baz_second
+
+crimp_Exception* crimp_foo_quux(Type t);
+```
+
+This generated header file will be the same header file which contains the native c function and type declarations, as generated from the "crimp-header" file.
+
+Actually, come to think of it, it may make sense for this to reside in the same file as the "crimp-header" file. Maybe it could be called the "interface" file, something like that. Since it defines the interface that both languages use to talk to each other.
+
+
+## calloc
+Use calloc everywhere...
+
+
+## function/method overloading
+Nope, don't allow it. Period. If it does something different, or takes different types, then it needs another name, except for generics, which are parameterized on type parameters.
+
+
+## Variadic functions
+Initially don't support it, but eventually we probably want params arguments, like in c#, which is just syntatctic sugar for creating an array and passing it in.
+
+
+## string formatting
+First off, every type will get the "ToString" trait (whatever that should be called), which by default is like "full.TypeName[0xPOINTER]", but you can explicitly specify the ToString(string format) function.
+
+Then, like in old c#, there will be some kind of a string.Format(string template, params ToString[] objects), which will act like c# I guess:
+str = string.Format("Name: {0}, ID: {1:D10}", name.ToUpper(), id);
+
+Then, maybe, we can have syntactic sugar for that, which looks like:
+str = $"Name: {name.ToUpper()}, ID: {id:D10}";
+
+Or, maybe not. I'm trying to reduce the features of the language, but it needs to be a nice balance.
+
+Note that primitives (like id) will automatically be boxed. So, for example, `10.ToString(null)` will create a boxed temporary of 10, call ToString on it, and then leak it.
+
+
+## default parameters
+Hmm, maybe... could be nice? Could also be less explicit... or could cause confusion
+
+
+## finalizers
+Yes, you can specify the finalizer in the class. This is mostly useful for freeing raw pointer memory. However, they should be very restricted. No touching other objects. No allocation. No resurrection. Any violation of this is undefined behavior.
+
+
+## Polymorphism
+No inheritance. However, you can specify traits, and when passing traits to things, it will pass a fat pointer.
+
+
+## stack unwinding
+Use backtrace() or libunwind on posix (and whatever windows provides). Then, you can use that when printing or dumping stack traces. If possible, try to unmangle function names.
+
+
+## multiple return values
+I think I really want this, if possible. It's seamless to c code. Just need to make the ergonomics suit multiple return values. It won't be achieved through a trick like "tuple unpacking". It'll be the real deal.
+
+I imagine you should also be able to do something like:
+
+a, b = b, a
+
+Although that's less important than the multiple return values in the first place.
+
+I guess the syntax would be something like:
+
+a, b = mult();
+
+or:
+
+int a, int b = mult();
+
+You can't do . on something with multiple return values, or pass it directly into anything:
+
+mult().second; // error
+foo(mult());  // error
+
+
+## fast failure in c
+
+If you want to call a bunch of functions, and want the application to die if any of them errors, you might do something like this:
+
+foo(bar) || die();
+
+Because they return a 0 pointer on success. However... on failure, we don't get the exception, which is awful. We might have to do something like:
+unwrap(  foo(bar)  );
+
+Which will do something like this:
+
+Exception* _temp5384 = foo(bar);
+if (_temp5384 != NULL) {
+    die(_tmp5384);
+}
+
+Which would print the stack trace and any info in the exception itself, and then exit. It would also give the site of the error, so someone can easily investigate further.
+
+So maybe we'd have unwrap(), for prototyping, and wont_throw(), for production code where you're pretty sure it won't actually throw (cross fingers).
+
+
+## Exceptions
+I think exceptions would need an inheritance hierarchy... I'll need to think about this. At the very least, the base exception will have a stacktrace, a specific file and line number, and a message.
+
+
+## RTTI
+The language will have RTTI, that it uses for everything. So, it's mandatory in classes. All class objects will have a reference to their type structure, which will have information such as name, some kind of dictionary structure of all implemented traits (so arbitrary objects can be cast to a trait at runtime), memory layout information. Type information will be exposed to users.
+
+RTTI can be used to implement things like json encoding and decoding, ORM, etc, albeit more slowly than in languages that support compile-time execution, compile-time templating, or run-time compilation. I think it's a reasonable tradeoff anyhow.
+
+
+## Generics
+I don't know how to implement them, but we definitely need them, one way or another. I'm not sure how we prevent code duplication all over the place.
+
+I'm also not sure how we should handle reification. Do we just make tons of copies of things willy-nilly? Also, in order for other code to use our library's generics, does that mean we need to distribute the source code for this particular generic? Do we take java's silly approach to generics? Need to ponder on this......
+
+All I know is, we need generics, in some form or another!
+
+What I really don't want is buffer[byte] to be backed by an array of boxed bytes. That would be insane and ridiculous.
+
+What could potentially work, is hidden type parameters which get passed into the function/constructor at runtime, and which dictate all memory operations. So, a buffer copies TSize bytes at a time. I think this would be probably the best solution given the constraints. And maybe the programmer can explicitly reify specific versions of the function or type, but only in the library... and I actually don't like that one bit. It gets really confusing as to what will actually happen, since it's all hidden from the user (and even from the library designer, to some extent).
+
+Thinking about it, I definitely want types with type parameters to receive type structs in the constructor. And, exactly the same for functions with type parameters. Even if we always know the size, we should always make it explicit so c has a stable abi to work with. Then, when the function or type method is manipulating data, they will check the type's size and use that to orchestrate its data manipulations.
+
+Accessing field generics from c code is gonna be a pain in the butt. It'll have to be done dynamically I guess... what a mess!
+
+Maybe there's justification for reifying generic types, and having a generic type cache that the generic types get added to.
+
+If you create a Foo<Bar, Baz> for the first time, it reifies a Foo<Bar, Baz> type for you, but anytime after that, it gets taken from the cache. This seems very reasonable, actually... Then the concrete generic types will know their actual fields and field offsets, and know their actual size. And then we don't need special constructors.
+
+You know, I really think this could work. Reified generic types with a cache. Methods use the type parameters from the generic type to do anything they need to do (like allocating and copying memory), not to mention performing trait lookups when necessary. And then generic functions use the type parameters that were passed to do their logic.
+
+Oh, inline generic methods and functions will use all type data available. So they will be maximally performant, anyhow.
+
+Generic parameters passed into functions will always be passed through a pointer, because we don't know the size ahead of time. It's important that the function doesn't modify the original (for example, if passing a double in, we shouldn't modify the original double, because that wouldn't have been possible with pass-by-value). Probably need to use alloca to put stuff on the stack (of dynamic size).
+
+I want numeric "type" parameters too, not just "type" type parameters. The reason for this is then it gives us the ability to have fixed-sized arrays in structs.
+
+Ok, I just realized, we definitely need to give concrete types to c (and probably concrete wrappers around generic functions). The concrete types are necessary - how else will the c code be able to use something like:
+
+class Foo<TType, ICount> {
+	Bar b;
+	TType[ICount] values;
+}
+
+in a function which receives a: Foo<Baz, 10>. It's easy when it receives this:
+
+class Foo_Baz_10 {
+	Bar b;
+	Baz[10] values;
+}
+
+
+## Arrays
+Default arrays will have their length embedded in the object (like in c#). I don't know if default arrays will be a special case in the language, or if they'll be a generic type. They should probably be a special case if there's any justification for it, but generics can handle them reasonably well.
+
+There will be some kind of a "list" type which is a generic that wraps around an array. Strings will be a special case, I think, which will be immutable arrays of bytes (utf-8), and always 0-terminated. String builders will work like in c#.
+
+I like the idea of a buffer type, which will be written to incrementally, and then can either be read back into another buffer type, or into a fixed-sized array (c buffer).
+
+I also like another idea of a buffer writer type, which buffers for another writer type, and will flush either on the buffer being full, or on explicit flush.
+
+
+## variable-length types
+I think variable-length types should be a first-class feature of the language. They will all have the exact same format:
+
+class Foo {
+    // some stuff here
+	Bar[] dynamic;
+}
+
+This will compile to something like:
+
+struct Foo {
+    // some stuff here
+	int length;
+	Bar[0] dynamic;
+};
+
+But there will be a special allocator for variable-length types, which will allocate the correct size, for whatever count dynamic is supposed to be. Then, array indexes into dynamic will be bounds-checked (by default, of course). And c can still use it.
+
+With this approach, then c#-style arrays can be implemented as such:
+
+class Array<T> {
+	T[] data;
+}
+
+
+## inline functions
+If a function is inlineable, then its code needs to be provided in the module package. No two ways about it.
+
+In general, when building against a module package, you don't necessarily need the source code, but you need more than just the dll. In the case of inline functions, their source code needs to be provided.
+
+
+## compiler implementation
+initially, the compiler will be written in c#, and will read crimp files and output c files. Once that has sufficient basic functionality, then a standard library will be developed, and a self-hosting compiler (using the same paradigm) will be implemented.
+
+
+## fat pointers
+I long had this idea that a fat pointer would be a single structure that contains both the pointer and the vtable... but actually, why not have 2 separate parameters? It sounds like the c way. Vtables don't need to be memory managed. And, this also gives the ability to pass an extra fat pointer (maybe with 2 or 3 vtables, for types that you want to do a lot with).
+
+
+## traits
+Classes, structs, and primitives can all have traits. Boxed and unboxed versions of the same primitives have the same traits (or at least, the same trait behavior). However, pointers to structs don't have that trait behavior (pointers have their own traits).
+
+
+## custom traits
+That is, if you want to provide your own trait (or multiple traits) for some class or struct, maybe you can, but you have to be explicit if using any trait other than the default... No... this is no good!
+
+
+## c helper functions
+The language itself - but more importantly - the libraries will provide c helper functions. These functions will be native c functions callable from c, and the entire point of them is that they make your life way easier when working in c. For example:
+
+crimp_String_handle* crimp_String_fromCstr("hello, world!");

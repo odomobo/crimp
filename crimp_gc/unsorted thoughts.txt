@@ -1,0 +1,141 @@
+# 2026-01-05
+
+Here are some random thoughts (specific to GC) I want to try to get on paper, because I'll be taking a break from my project for a while, and I want to be able to pick it back up where I left it.
+
+
+## threads dying while in critical sections
+Eventually (low priority), make it such that if a thread is terminated in a critical section, it won't deadlock the GC thread, and that it also won't cause any memory corruption (but, of course, it can cause malloc'd memory to leak. Nothing to do about that).
+
+
+## prefix
+I'm thinking of using the prefix crimpGc_ instead of crimp_gc_ , because of the way namespacing will work by default. If there's a "gc" module in crimp, it would be namespaced with "crimp_gc_", so we don't want collisions.
+
+
+## dynamic library
+This needs to be a dynamic library, not a static library. Everything needs to use it.
+
+
+## DLL_EXPORT
+Need to have the build script give everything private visibility by default, and only export necessary symbols.
+
+
+## roots
+There will be 3 sources of roots: globals, shadow stack, handles. The shadow stack will be unnecessarily error prone, so the advice will be to only use handles everywhere in native c code.
+
+
+## collection process
+Here are the rough steps for the collection process:
+
+1:
+First, the program state is in "NON_COLLECTING" state, and all threads are also in the "NON_COLLECTING" state. They're living their happy lives. All objects are marked as white, no threads are maintaining a gray list.
+
+2:
+A thread goes to make an allocation, and for whatever reason, it decides "now is the time". It locks its own mutex, { sets thread state to "COLLECTING_ROOTS" and sets free_to_proceed=false }. Then, it locks the global gc mutex { sets program state to "COLLECTING" } and wakes up the collector thread (using a cv with the collector thread's mutex? I think). Then, being the good little thread it is, it starts collecting roots (without the collector thread telling it to do so).
+
+3:
+The collector thread awakens from its slumber, sees that it's in the "COLLECTING" state, and gets to work. It locks each thread, and { sets its state to "COLLECT_ROOTS" and sets free_to_proceed=false; additionally, it moves its thread local "young objects" list to the global "old objects" list. These objects (the current young objects and old objects) are the only objects being considered for deletion } . Then, and only then (once all threads are in the "COLLECT_ROOTS" state and are not allowed to wake up if the finish early, so that means no threads can perform additional prohibited memory operations), it'll lock each of them again and set free_to_proceed=true, and then send each a cv signal to wake them up. See, when free_to_proceed=false, no thread is allowed to resume working. When all threads are set to "COLLECT_ROOTS" and free_to_proceed=false, that state acts as a synchronization point, even if it's only for a nanosecond. Then, once the synchronization point has been guaranteed, then threads are released to continue once they've collected their roots.
+
+4:
+When a thread is in the "COLLECT_ROOTS" state, when it hits a memory barrier (pointer write, shadow stack alloc/dealloc, handle create/free, or even globals registration, although that should be rare), then it changes its own state to "COLLECTING_ROOTS" to let the collector thread know it's working. Then it will stop and walk through its shadow stack, and then all its alive handles, and mark all objects along the way.
+
+When a thread is collecting roots, the way it marks is as follows: It atomically tries to darken the object to gray (which leaves it black if it was already black). Then, it adds the object to a gray list.
+
+Anytime a gray list is filled, then the global gc mutex is held, and { the gray list is added to the collector's work queue }, and then a signal is sent to the collector's cv, in case it was sleeping waiting for work.
+
+5:
+Once all roots have been collected, then the final gray list is flushed (even if only partial), and then if free_to_proceed=false, it waits in a cv for for free_to_proceed=true. Otherwise, if free_to_proceed=true, it'll (lock) { change its state to "CONCURRENT_COLLECTION", set free_to_proceed=false }, and resume.
+
+6:
+When a thread is in "CONCURRENT_COLLECTION", if an object is overwritten by a write barrier, then it'll color the object gray (and add to local gray list). And, when a new object is allocated, it'll be colored black. It'll still be added to the thread local young objects list, but that list is no longer being considered for deletion, for the current collection process at least.
+
+7: back to the collector thread
+Ok, so it was woken up by a thread who wanted it to start working, then it told all the other threads to begin collecting roots (set their states to "COLLECT_ROOTS", and then went around again to tell them they can wake up whenever they feel like, and sent a signal so they will wake up and continue if they were waiting).
+
+Next, it needs to mark all known globals as gray, adding each to the gray list. If there are no globals, and it doesn't yet have any objects in its gray list, then it'll take a micronap (cv with short timeout), to give other threads the opportunity to give it at least one gray list to start with. Either way, it continues, and will process the gray list. The way it processes the gray list is as follows:
+
+8: process gray list
+If there's at least one item in the gray list, mark it black, and mark all of the objects it references gray (adding to the gray list if applicable).
+
+Then, repeat until there are no items in the gray list.
+
+9:
+At this point, the collector thread starts to get antsy. Hmm... what's going on? Are there any threads which haven't even started collecting? If so, they need my help! It checks through every thread, and if any thread is in the state "COLLECT_ROOTS" instead of "COLLECTING_ROOTS" or "CONCURRENT_COLLECTION", then clearly that thread is being lazy. The collector thread collects that thread's roots for it (setting it to a state of "BLOCKED"), and once finished, it changes its state to "CONCURRENT_COLLECTION" and sends a cv signal, in case it tried to perform a memory operation and found itself blocked. Then, after collecting for another thread, it goes back to step 8.
+
+Something to note: the thread in the "BLOCKED" state may be doing a bunch of work, including touching live objects, but crucially, it's not changing the memory graph (if it tried, it would then actually stop and be in a cv around its own thread state). In fact, if it was a long-running c thread, doing a bunch of work, it could be none the wiser that the collector thread scanned its roots.
+
+10: If no threads in "COLLECT_ROOTS", but at least some threads still in "COLLECTING_ROOTS"
+If there are no threads that can use assistance, but not all the threads have finished collecting, then it takes a micronap (cv with short timeout), and goes back to step 8.
+
+11: All threads in "CONCURRENT_COLLECTION", no items in gray list
+Ok, so now I guess all the marking is complete! Well, not quite: there will probably be a few unflushed items in the thread local gray lists, and if we're incredibly unlucky, some of those reference objects which are still white. So now, we need to set each thread to the "BLOCKED" state again, and then once they are all blocked, process flush each thread:
+
+12: thread-specific flush
+For that particular thread, take its gray list and move it to the global gray list. Then process the global gray list. When done with that thread, we're not yet ready to wake it up.
+
+13: all threads have been flushed
+All threads have been flushed but they're still "BLOCKED". There are no gray objects anywhere to be found. All objects which are black are potentially alive (and likely so), and all white objects are guaranteed unreachable. We can _finally_ mark the young objects in the thread-local young object lists as white. However, let's let the threads do that. It's likely more efficient that way (otherwise, they'll be waiting for us to do it). So, we set each thread to the "MARK_WHITE" state, and send a cv signal.
+
+14: MARK_WHITE state
+If a thread hits a memory barrier when in "MARK_WHITE", then it will update its state to "NON_COLLECTING", mark all of its objects white, and then resume operation. Back to normal! No more marking objects as gray.
+
+15: sweep in collector thread
+The collector walks through the global old object list, and for every white object, it frees it, and for every black object, it marks it as white.
+
+16: *grumble grumble* finalizers
+We could have a separate finalizer list for objects which require finalization, but I think it's best to run an object's finalizer right before freeing it.
+
+17: dotting i's and crossing t's
+As a final step... we don't know if the threads actually had a chance to mark their young objects as white. They should have had time while we swept the old objects, but who knows... maybe there's a long-running c thread that hasn't hit a memory barrier in ages. Let's help them out. Check each thread's state, and if it's in "MARK_WHITE", then set its state to "BLOCKED", mark all of its objects white, then update its state to "NON_COLLECTING".
+
+18: finally!
+Yes, finally! All done with the collection! Set the program state back to "NON_COLLECTING", and go back to sleep (around a cv, waiting to be woken up for another collection). Let's observe the state:
+
+The program state is "NON_COLLECTING".
+Each thread's state is "NON_COLLECTING".
+Every object in the global old object list is white.
+Every object in each thread-local young object list is white.
+There are no objects in any gray lists.
+
+
+## Type_slot vs Type* behavior
+Type_slot will be an opaque pointer, which actually points to the actual type object, but we hide it so that way the programmer can easily do things the right way (hopefully the type system informs the programmer there's an issue).
+
+We generate all the helper types and macros (like Type_slot, Type_hBuilder, Type_handle, Type_set(Type_slot* dst, Type* src) ) automatically in the crimp language. We can also start by just having a generic crimp_gc_slot type.
+
+Returns will look like:
+
+Exception* foo(int input, Bar_slot* ret);
+
+
+## calloc
+Use calloc everywhere...
+
+
+## Data types
+We'll need data types for: gray lists (populating pages at a time, each page is a queue, and a queue of pages), object lists (which are also pages, but should be able to be merged together).
+
+When appending gray lists to the main gray list, it's ok if there are several partial pages. There will always be an active gray list page, and if it is exhausted, it'll switch to use the next in the queue of gray lists. If it gets overfilled, then it'll be pushed to the gray list queue, and another gray list will be created to use as the new active gray list. I lied a bit; when one is exhausted, it'll get added as a "backup" gray list, which will be used instead of creating a new one if the next gray list is overfilled.
+
+Appending object lists will need to merge partial object lists; the invariant is that the head is the only object list allowed to be partially full. When deallocating objects, it pulls objects from the head to fill holes, and when allocating objects, they always get allocated to the head.
+
+I'm not yet sure how to manage handle lists... Handles can't be moved, so we need to figure something out with empty slots. Maybe free lists? I dunno... And then what about scanning them? Scan for only live ones, or scan entire pages and just skip the blank entries? Both have problems... The problems of a non-compacting collector. I guess I'll figure out which is the least bad approach.
+
+
+## shadow stack
+The real object pointers will live on the shadow stack, and local variables will have pointers to the shadow stack. Out parameters will point to slots on other frames of the shadow stack (or to handles, which is also good). I guess they could also point to slots on live objects or globals. I guess they can point to anything that would keep an object alive!
+
+
+## fat pointers
+So, I guess fat pointers will take 2 words instead of 1. Not a problem, really, but what it does mean is that there will have to be a special handle type for fat pointers, and that they will implicitly take 2 slots on the shadow stack. For example, if you push a fat pointer onto slot 0, it'll take up slots 0 and 1... Hm, no, that won't work. All pointers on the shadow stack need to be pointers to objects. Maybe it needs 2 regions: one for normal pointers, and one for fat pointers. Or maybe I need 2 shadow stacks. I think either approach would work just fine. Saving fat pointers elsewhere is no problem.
+
+I guess to prevent handle fragmentation, it might be best to have all handles be big enough to support fat pointers.
+
+We'll worry about this once we implement traits.
+
+Actually, scratch all of that. I want to pass fat pointers piecemeal, so we don't need any special handling for fat pointers. That's definitely the c way to do things!
+
+
+## gc thread on exit
+Do we have to do something to let the GC thread die on program exit? Will the GC thread potentially keep the application alive?
+
+

@@ -1,0 +1,151 @@
+# Crimp: A High-Level Overview
+
+Based on our discussion, here's my understanding of what Crimp is and what makes it distinctive:
+
+## Core Philosophy
+
+**Crimp is "C with automatic memory management and modern ergonomics, designed for seamless C interop."**
+
+The design philosophy centers on:
+- **Explicitness over magic**: Users control what happens, language doesn't hide behavior
+- **Trust the programmer**: Provide powerful features with clear guidelines, don't over-police
+- **Native C interop as a first-class feature**: Not bolted on, but fundamental to the design
+- **Pragmatic memory management**: GC for memory, explicit cleanup for resources
+
+## Memory Model
+
+Crimp has a three-tier memory model:
+
+1. **Value types (structs)**: Stack-allocated, copied by value, no GC involvement
+2. **Reference types (classes)**: Heap-allocated, garbage collected, always accessed by reference
+3. **Raw C pointers**: Unmanaged, can leak, require manual discipline
+
+This is similar to C#'s struct/class distinction, but with more C-like sensibilities.
+
+### Garbage Collection
+
+- **Concurrent, non-compacting collector** (initially Go-style tricolor marking)
+- **Shadow stack for roots**: Compiler-generated code maintains explicit root tracking
+- **Write barriers on all mutations**: Enables GC algorithm flexibility
+- **No compaction**: Allows C code to safely hold raw pointers temporarily
+- **Weak finalizers**: Only for wrapping C resources (like GMP, file handles)
+
+## The Handle System: The Key Innovation
+
+This is where Crimp really differentiates itself. The handle system solves the "how do C code and GC code coexist safely" problem:
+
+**For Crimp-generated code:**
+```crimp
+crimp_frame* f = crimp_frame_acquire(3);
+bar** b = crimp_frame_get_slot(f, 0);
+Exception* e = get_bar(b);  // Direct pointer, tracked in shadow stack
+// exception handling here
+use(*b);
+// GC knows about b, thanks to crimp frame acting as a root, no manual management needed
+crimp_frame_release(f);
+```
+
+**For C FFI code:**
+```c
+bar_hBuilder* hb = bar_hBuilder_create();
+Exception* e = get_bar(&hb->slot);  // tracked in handle
+// exception handling here
+bar_handle* h = bar_hBuilder_finish(hb);
+bar* b = h->data;  // Access raw pointer; safe as long as we have the handle
+use(b);
+bar_handle_release(h);  // Manual lifetime management
+```
+
+**Key insights:**
+- Handles are cheap (free list allocation, atomic refcounting)
+- Handles act as GC roots, keeping objects alive
+- C code never holds raw pointers beyond handle lifetime
+- Two different mechanisms for two different contexts (generated vs. manual code)
+
+## Language Features
+
+### Classes and Composition
+
+- **No inheritance**: Classes are concrete types (Go-style)
+- **Composition over inheritance**: Embed other types instead
+- **Reference semantics**: Classes are always heap-allocated and accessed by reference
+
+### Resource Management
+
+- **`defer` for cleanup**: Scope-based resource management (like Go)
+- **No RAII**: No automatic destructors on scope exit
+- **Finalizers for C interop only**: `~ClassName()` for wrapping C resources
+  - Run during GC sweep, no guaranteed order
+  - Should only clean up C resources, not touch other GC objects
+  - Best-effort (may not run on program exit)
+
+### Safety Model
+
+- **Unsafe contexts**: Certain operations (raw pointers, direct C calls) require `unsafe { }`
+- **Not enforcing safety by default**: More like C than Rust
+- **Providing the tools, not the guardrails**: Compiler helps, but trusts programmer
+
+### Exception Handling
+
+- **Explicit error returns**: Functions return `Exception*` to indicate errors
+- **No stack unwinding complexity**: Errors propagate through returns
+- **No finalizers on exception**: Objects are just memory, no cleanup needed during unwind
+
+## What Crimp Does Differently
+
+### Compared to Go:
+- **Native C interop**: Go's cgo is notoriously slow; Crimp makes C calls first-class
+- **Allows direct pointer access**: Go hides pointers; Crimp exposes them (with handles for safety)
+- **More C-like**: Closer to C's mental model and performance characteristics
+
+### Compared to Rust:
+- **GC instead of borrow checker**: Easier to learn, no fighting the compiler
+- **Runtime cost for safety**: GC pauses instead of compile-time checks
+- **Trusts programmer more**: Unsafe is a tool, not a last resort
+
+### Compared to C++:
+- **No complex inheritance**: Simpler object model
+- **GC for memory**: No manual new/delete for most objects
+- **Clearer resource management**: `defer` and finalizers instead of RAII everywhere
+
+### Compared to C#/Java:
+- **No VM/JIT**: Compiles to native code
+- **Direct C interop**: No marshaling overhead, no pinning complexity
+- **More explicit control**: Less "magic" happening behind the scenes
+
+## The Compilation Model
+
+Crimp compiles to C as an intermediate representation:
+
+1. **Crimp source** → **Instrumented C code** (with shadow stack operations)
+2. **Instrumented C** → **Native binary** (via C compiler)
+
+This gives:
+- Native performance
+- Easy debugging (can inspect generated C)
+- Leverage existing C toolchains
+- Natural C interop (it's all C underneath)
+
+## Target Use Cases
+
+Based on the design, Crimp seems targeted at:
+
+- **Systems programming with GC**: Where you want memory safety but need control
+- **C library wrapping**: Making C libraries ergonomic (for example, wrapping GMP to make it easier to use)
+- **Mixed codebases**: Where you need both high-level and low-level code
+- **Performance-sensitive applications**: Where GC pauses are acceptable but you need native speed
+
+## Design Tensions Crimp Resolves
+
+1. **GC vs. C interop**: Handle system lets both coexist safely
+2. **Safety vs. control**: GC for memory, explicit for resources
+3. **Ergonomics vs. performance**: Write barriers enable fast GC without compaction
+4. **Simplicity vs. power**: Limited feature set (no inheritance) but powerful primitives
+
+## Summary
+
+Crimp occupies a unique spot in the language design space: **it's Go's simplicity and concurrency-friendly GC, combined with C's directness and performance, unified by an elegant handle-based FFI system.**
+
+It's not trying to be the safest language (that's Rust), or the most ergonomic (that's Python/Java), or the fastest (that's C/C++). Instead, it's trying to be the best language for writing systems code that needs automatic memory management while maintaining seamless C interop.
+
+The design is coherent: every feature supports the core goal of "productive systems programming with first-class C interop." No inheritance, no RAII, no complex safety system—just GC, handles, defer, and trust in the programmer.
