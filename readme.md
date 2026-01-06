@@ -1,0 +1,2 @@
+# Crimp programming language
+Crimp is a programming language in its infancy. It wants to be "go", but without the special threading features, with c ffi as a first-class language feature (designed for mixed-language projects), and with exceptions.
