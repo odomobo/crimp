@@ -268,3 +268,14 @@ That is, if you want to provide your own trait (or multiple traits) for some cla
 The language itself - but more importantly - the libraries will provide c helper functions. These functions will be native c functions callable from c, and the entire point of them is that they make your life way easier when working in c. For example:
 
 crimp_String_handle* crimp_String_fromCstr("hello, world!");
+
+
+## macros
+Especially things like the __FILE__, __LINE__, __func__ macros. I dunno, but I kinda don't want anything other than basic conditional compilation (a la c#).
+
+
+## pluggable backends
+I think it makes sense to use a plug-in backend architecture. Then users can write their own backends - for example, if they want integration with, say, zig. Not super important, but it just makes sense anyhow.
+
+## not pluggable gc
+It would nice for the gc to be pluggable, to allow integration with other systems which use other GCs, but this just is not feasible. This is because the language paradigms are tightly integrated with the way the GC works.

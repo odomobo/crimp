@@ -139,3 +139,13 @@ Actually, scratch all of that. I want to pass fat pointers piecemeal, so we don'
 Do we have to do something to let the GC thread die on program exit? Will the GC thread potentially keep the application alive?
 
 
+## logging
+CrimpGc needs a logging function which logs to file and/or console. These are both enabled or disabled at runtime. If it logs to a file, then the filename has the start timestamp in it. Otherwise, I'm pretty happy with how it works currently.
+
+
+## code organization
+Need to figure out how to organize the code... the state transitions are confusing. Maybe need to make a state transition diagram. The worker threads have different needs than the collector thread.  Also, what things need locks in order to access? The easiest approach is probably to make structs specific to that lock, and when accessing anything within the struct, then the lock needs to be held. Then it makes obvious separation.
+
+Then, we can have one struct for worker threads, and another struct for collector thread. The collector thread struct will have things like the global object lists (old objects), and global gray lists.
+
+These structs will also have cvs, relevant for whatever section of code they're responsible for. I think all of this is necessary in order for the code to make any sense.
