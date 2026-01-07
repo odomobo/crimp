@@ -451,5 +451,6 @@ Especially things like the __FILE__, __LINE__, __func__ macros. I dunno, but I k
 ## pluggable backends
 I think it makes sense to use a plug-in backend architecture. Then users can write their own backends - for example, if they want integration with, say, zig. Not super important, but it just makes sense anyhow.
 
+
 ## not pluggable gc
-It would nice for the gc to be pluggable, to allow integration with other systems which use other GCs, but this just is not feasible. This is because the language paradigms are tightly integrated with the way the GC works.
+It would nice for the gc to be pluggable, to allow integration with other systems which use other GCs, but this just is not feasible. This is because the language paradigms are tightly integrated with the way the GC works. The only thing I can do, is once I have a stable API, I can try a few different implementations, but I'm fairly limited on the approaches I can use.

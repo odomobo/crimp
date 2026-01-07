@@ -1,0 +1,146 @@
+# 2026-01-06
+
+So now that I've solved basically all of my problems, I want to go back and revisit everything I decided.
+
+First, I want a compacting GC, even though it doesn't actually work with c. In C, you need to be able to hold pointers for a long time, and we won't be able to update every reference to the pointer. It's a nonstarter.
+
+Second, I want relocatable handles, which also doesn't work. C code will have long-lived handles to the objects. Sometimes. It's just how it works.
+
+Claude gave me a workable suggestion, which is hand out uint64s which look up into a hash table, but that has its own problems, and a little fragmentation is not nearly as bad of a problem. So, no! I'll just live with a little fragmentation. It's c, after all. This is, by far, the least of my worries.
+
+If I want a true compacting collector, I can't work in c. That's the long and short of it.
+
+But then I thought, oh hey, maybe I could use an arena allocator for something. What? The point of a garbage collector is that I don't have to think about memory allocation patterns.
+
+Actually, I had been thinking about allocating handles in pages, but I could also just malloc and free handles as needed. There's one special consideration with this: if handles are in pages, then when scanning roots, I can just scan entire handle pages at a time. With individual objects, I need to traverse linked lists, which will be slooooow. And, importantly, I (basically) can't be scanning these roots while the thread is running, so the shorter the root scan is, the better.
+
+If I'm doing pages at a time, I can change strategy for pages which are mostly full vs mostly empty. If mostly full, then I scan the entire block of memory, ignoring NULL pointers. If mostly empty, I explicitly scan the live object list.
+
+Then I'm also thinking about ergonomics. Is there a better approach than:
+
+1. Acquire handle builder
+2. Set slot in handle builder
+3. Promote to actual handle
+4. (use)
+5. Release
+
+It sounds pretty optimal, honestly. The only way to streamline it would be by allowing handles themselves to be mutated, and that's just opening the door for bugs.
+
+In practice, it looks like:
+
+Foo_hBuilder* f_hb = Foo_hBuilder_create();
+unwrap(  bar(10, &f_hb->slot)  );
+Foo_handle* f_h = Foo_hBuilder_finish(f_hb);
+unwrap(  baz(20, f_h->data)  );
+native_quux(f_h);
+Foo_handle_release(f_h);
+
+Note that we prefer to pass handles to native c functions, but crimp functions will expect raw pointers (because they know how to manage it themselves).
+
+I honestly don't see a cleaner way to do it. It basically requires 3 function calls. The last one is required - the explicit release, to indicate it's free. The first one is required - creating a new handle. Using the slot on the hBuilder and using the raw pointer on the handle are both ergonomic. The only real consideration is converting the hBuilder to a handle, and that's definitely required if we don't want handles to accidentally be written to.
+
+So, it was the perfect solution, and I'm still spinning on something I've solved.
+
+Now I'm spinning on other things I've solved. I figured out how to track memory in memory lists. Pretty straightforward. Yet I'm still sitting and spinning on it, for whatever reason. What I need to think is that I have a "handle pool" as a data type, and a "memory list" as a data type as well. And those data types are worried about the particular operations within them, and I just use them. One other thing: the data types themselves aren't threadsafe, so I just have to hold the thread-local or global lock  (whichever is applicable) when using that data type. Easy peasy.
+
+And claude told me about lock allocation order: always global, then local. And never hold 2 local locks at once. That will simply prevent deadlocks from lock order. Easy peasy. (actually, we should probably reverse that. see below)
+
+Then I'm thinking about how to have the collector thread change local thread state while a local thread is actively working on something. Well, this is only needed for the synchronization points, so... let's just put the synchronization points at the global level. That should work perfectly. Easy peasy. No, actually, I solved this below; we can leave it at the local level. It's that state locks are always short lived.
+
+Then, what else... oh, do we need a full synchronization when flushing the gray lists from the threads? Yes, because if we let one thread loose before the other gray lists are flushed, it might start juggling memory, and in a way that's impossible to catch because it will no longer be maintaining a gray list. So I've already solved that.
+
+And the thread gray flushes should be quick. The only case where it would be slow is if there was a ton of very devious object juggling happening with collection up to this point - the initial traces from the roots is almost guaranteed to scan the entire tree, and the gray lists are just to prevent stragglers in pathological cases.
+
+It's ok for a local thread or the collector thread to hold a thread-local lock for a long time, but it's not ok to ever hold a global lock for a long time. Because of this, it's probably a good idea to lock local first, then global, when there's a required locking order. Ok, one beneficial outcome from spinning on this... but I'd have figured that out eventually.
+
+Ok, I decided there should be one extra step. There should be one final (non-blocking) gray list flush, before blocking all threads. Otherwise, what's quite likely to happen, is all threads will accumulate some items in their gray lists, but not enough to flush. By the time the collector has exhausted all of the initial gray lists, there should be very little actual work to be done, so it's best to try to flush all the gray lists one last time before blocking all threads. Then, once blocking all threads, there's a decent chance that there are simply no more gray items, or maybe like 1 or 2. Basically nothing.
+
+This doesn't guarantee anything, but it gives a very, very strong likelihood that the global final pause is miniscule. I would expect marking <10 items total - ridiculously short. Some threads might not even realize that there was a final pause, if there's little enough work to be done (0 or 1 gray items).
+
+I had been thinking about how to combine gray list pages, doing a kind of merge operation. No, when combining 2 gray lists, simply take all the pages and combine them. However, free lists do need to be merged together like I was describing. Either way, it's easy.
+
+Easy easy easy... I honestly don't think I have anything else to even consider. Everything has been considered. Oh, I don't know if I mentioned short locks vs long locks on local threads. As I mentioned, all global locks are short locks. However, in the case of local threads, there can only be long locks in certain states. When a local thread tries to access its lock and there's a long lock, that's because the collector thread is doing work, and it needs to wait. When a collector thread wants to check on the status of a local thread, and the thread is in a state that allows long locks, well, the collector thread is trying to see if the local thread is finished doing its work. So it'll check if a lock is held, and if it is, it'll assume it's in that long-running state.
+
+Wait, no... what if it just gets unlucky over and over again, and the thread is in the right state, but happens to be doing memory barriers at just the wrong times... ok, that's a problem.
+
+Ok, new plan: there are conceptually 4 locks: global state, global work, local state, local work. They have to be aquired in that order, so if you hold local work and want to acquire local state, you have to release local work first, then you can acquire local state, then reacquire local work.
+
+Maybe the order can be: local state, local work, global state, global work. Whatever ends up making the most sense in practice.
+
+The state locks can never be held long, but the work locks can. That means a thread can always peek on the state of something, and can either take on a task, wait for the state to become favorable, or (in the case of the collector thread) do some other stuff and then come back in a bit. When doing long running work, it doesn't prevent other threads from peeking at what you're doing, but since you're in a "long running work" state, they won't touch your state.
+
+So I guess some states will be prefixed, perhaps, with "BLOCKED_", to indicate they are working. Ok, then here's what the states will look like:
+
+Collector states:
+NOT_COLLECTING
+COLLECTING
+
+Local thread states:
+NOT_COLLECTING
+MARK_ROOTS
+LOCAL_BLOCKED_MARKING_ROOTS
+AWAITING_CONCURRENT_COLLECTION
+COLLECTOR_BLOCKED_MARKING_ROOTS
+CONCURRENT_COLLECTION
+COLLECTOR_BLOCKED_FLUSHING_GRAY_LISTS
+
+along with a "cleared_for_concurrent_collection" bool, which if it's false, will prevent threads from resuming work after marking roots.
+
+When the threads hit a write barrier, they have consistent behavior around the state they're in:
+NOT_COLLECTING: proceed, but new objects start as white
+MARK_ROOTS: change state to LOCAL_BLOCKED_MARKING_ROOTS, then mark local roots (stack and handles), then flush gray list, then move young object list to global old object list, then change state to AWAITING_CONCURRENT_COLLECTION, and then loop (no CV. the state might already be correct)
+LOCAL_BLOCKED_MARKING_ROOTS: assertion failure
+AWAITING_CONCURRENT_COLLECTION: if "cleared_for_concurrent_collection" is true, then change state to CONCURRENT_COLLECTION; else, CV loop
+COLLECTOR_BLOCKED_MARKING_ROOTS: CV loop
+CONCURRENT_COLLECTION: proceed, add to gray lists when overwriting pointer, and new objects start as black
+COLLECTOR_BLOCKED_FLUSHING_GRAY_LISTS: CV loop
+
+Note that other memory barriers (other than write barriers) will just lock the local work thread for the duration of their thing (for example, if allocating or deallocating a handle, if allocating or deallocating a shadow stack frame).
+
+Ok, that all makes sense. So the collector orchestrates everything by managing the states of the threads, and the threads will have consistent behavior.
+
+
+TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO 
+Need to update the algorithm below to move objects from the young object list (thread local lists) to the old object list.
+
+The rough algorithm, from the collector thread, is:
+set all thread states from NOT_COLLECTING to MARK_ROOTS (ignore other states), and setting "cleared_for_concurrent_collection" as false.
+then, set all threads as "cleared_for_concurrent_collection" as true. We just needed the briefest of synchronization points, and that happened. No thread could have continued in "NOT_COLLECTING" mode after another thread was in "CONCURRENT_COLLECTION" mode, which is what we're trying to avoid.
+mark global roots
+while (true) {
+	while (items in gray list) {
+		mark item in gray list
+	}
+	
+	if (all threads in CONCURRENT_COLLECTION)
+		break;
+	
+	// steal work from lazy threads
+	if (any thread in MARK_ROOTS state) {
+		perform the same MARK_ROOTS operation that the local thread would perform, but use the state COLLECTOR_BLOCKED_MARKING_ROOTS
+	} else {
+		impatiently wait a tiny bit, as there's literally nothing we can do
+	}
+}
+// we should have basically marked everything by now, but there may be a few stragglers
+flush all gray lists from all threads
+while (items in gray list) {
+	mark item in gray list
+}
+// now the chance that we even missed marking a few objects is miniscule; we should be good to freeze all threads
+set all thread states to COLLECTOR_BLOCKED_FLUSHING_GRAY_LISTS (this blocks them all)
+flush all gray lists from all threads
+while (items in gray list) {
+	mark item in gray list
+}
+move all objects from young object lists to old object list. This way, from here on out, the young object lists will be fully populated as white
+// all items have been marked. All roots were scanned, all gray lists have been exhausted, and all threads are paused (or at least, not updating the live-graph)
+set all thread states to NOT_COLLECTING
+// now time to sweep
+sweep objects in old object list. If they're white, then finalize and free, and if they're black, then clear to white
+set global state to NOT_COLLECTING
+CV loop for state to become COLLECTING
+
+
+The simple approch is the collector does all the orchestration, but a little optimization is that the thread that initiates the collection does some of the startup tasks (signaling the other threads, then starting its own marking). Nice little optimization, totally unnecessary, but if it's handled in the local thread that wakes the collector thread, then the collector thread mustn't do it, and vice versa.
+
