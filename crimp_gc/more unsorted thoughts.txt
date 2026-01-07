@@ -41,7 +41,9 @@ I honestly don't see a cleaner way to do it. It basically requires 3 function ca
 
 So, it was the perfect solution, and I'm still spinning on something I've solved.
 
-Now I'm spinning on other things I've solved. I figured out how to track memory in memory lists. Pretty straightforward. Yet I'm still sitting and spinning on it, for whatever reason. What I need to think is that I have a "handle pool" as a data type, and a "memory list" as a data type as well. And those data types are worried about the particular operations within them, and I just use them. One other thing: the data types themselves aren't threadsafe, so I just have to hold the thread-local or global lock  (whichever is applicable) when using that data type. Easy peasy.
+Now I'm spinning on other things I've solved. I figured out how to track memory in object lists. Pretty straightforward. Yet I'm still sitting and spinning on it, for whatever reason. What I need to think is that I have a "handle pool" as a data type, and an "object list" as a data type as well. And those data types are worried about the particular operations within them, and I just use them. One other thing: the data types themselves aren't threadsafe, so I just have to hold the thread-local or global lock  (whichever is applicable) when using that data type. Easy peasy.
+
+I also have to think about shadow stacks as a data type (containing shadow stack frames, but that's just a detail). And I also have to think of gray lists as a data type. Oh, and global roots list. Gray list, shadow stack, global roots list, handle pool, object list. Each of them is self-contained, and a lock must be held before using any of them.
 
 And claude told me about lock allocation order: always global, then local. And never hold 2 local locks at once. That will simply prevent deadlocks from lock order. Easy peasy. (actually, we should probably reverse that. see below)
 
@@ -144,3 +146,4 @@ CV loop for state to become COLLECTING
 
 The simple approch is the collector does all the orchestration, but a little optimization is that the thread that initiates the collection does some of the startup tasks (signaling the other threads, then starting its own marking). Nice little optimization, totally unnecessary, but if it's handled in the local thread that wakes the collector thread, then the collector thread mustn't do it, and vice versa.
 
+Ok, I realized the other thing that's on my mind is that I haven't figured out type metadata yet, but it should be really easy as of now (the only thing I really, really care about is a mark_gray function pointer). And also, I don't have typesafe handles... but who cares! Just cast. Same with stack slots (although that's gonna happen in production code anyhow). And... yeah, I guess that's it.
