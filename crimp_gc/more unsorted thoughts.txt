@@ -102,9 +102,6 @@ Note that other memory barriers (other than write barriers) will just lock the l
 Ok, that all makes sense. So the collector orchestrates everything by managing the states of the threads, and the threads will have consistent behavior.
 
 
-TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO 
-Need to update the algorithm below to move objects from the young object list (thread local lists) to the old object list.
-
 The rough algorithm, from the collector thread, is:
 set all thread states from NOT_COLLECTING to MARK_ROOTS (ignore other states), and setting "cleared_for_concurrent_collection" as false.
 then, set all threads as "cleared_for_concurrent_collection" as true. We just needed the briefest of synchronization points, and that happened. No thread could have continued in "NOT_COLLECTING" mode after another thread was in "CONCURRENT_COLLECTION" mode, which is what we're trying to avoid.
