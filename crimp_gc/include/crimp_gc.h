@@ -5,6 +5,21 @@
 #include <stdbool.h>
 #include <threads.h>
 
+// Symbol visibility for shared library
+#if defined(_WIN32) || defined(__CYGWIN__)
+    #ifdef CRIMP_GC_BUILD
+        #define CRIMP_GC_API __declspec(dllexport)
+    #else
+        #define CRIMP_GC_API __declspec(dllimport)
+    #endif
+#else
+    #if __GNUC__ >= 4
+        #define CRIMP_GC_API __attribute__((visibility("default")))
+    #else
+        #define CRIMP_GC_API
+    #endif
+#endif
+
 /////////////////////////////////
 // TYPES
 
@@ -35,9 +50,9 @@ typedef struct crimp_gc_slot_internal* crimp_gc_slot;
 /////////////////////////////////
 // TESTING
 
-void print_thread_list();
+CRIMP_GC_API void print_thread_list();
 
-extern pthread_mutex_t _crimp_gc_log_mutex;
+CRIMP_GC_API extern pthread_mutex_t _crimp_gc_log_mutex;
 #define log(...) do{ \
     pthread_mutex_lock(&_crimp_gc_log_mutex); \
     _crimp_gc_thread != NULL ? fprintf(stderr, " (%02d) [%s] ", _crimp_gc_thread->thread_id, __func__) : fprintf(stderr, " (\?\?) [%s] ", __func__); \
@@ -53,10 +68,10 @@ extern pthread_mutex_t _crimp_gc_log_mutex;
 
 // TODO: global roots list
 
-void crimp_gc_init();
-void crimp_gc_global_roots_register();  // TODO: signature to support global roots
-void crimp_gc_thread_register();
-void crimp_gc_thread_unregister();
+CRIMP_GC_API void crimp_gc_init();
+CRIMP_GC_API void crimp_gc_global_roots_register();  // TODO: signature to support global roots
+CRIMP_GC_API void crimp_gc_thread_register();
+CRIMP_GC_API void crimp_gc_thread_unregister();
 
 // INIT
 /////////////////////////////////
@@ -74,13 +89,13 @@ typedef struct crimp_gc_builder_t {
     int _refcount;
 } crimp_gc_builder_t;
 
-crimp_gc_handle_t* crimp_gc_handle_acquire(crimp_gc_slot* slot);
-void crimp_gc_handle_release(crimp_gc_handle_t* handle);
+CRIMP_GC_API crimp_gc_handle_t* crimp_gc_handle_acquire(crimp_gc_slot* slot);
+CRIMP_GC_API void crimp_gc_handle_release(crimp_gc_handle_t* handle);
 
-crimp_gc_builder_t* crimp_gc_builder_create();
-crimp_gc_handle_t* crimp_gc_builder_finish(crimp_gc_builder_t* builder);  // Invalidates builder
+CRIMP_GC_API crimp_gc_builder_t* crimp_gc_builder_create();
+CRIMP_GC_API crimp_gc_handle_t* crimp_gc_builder_finish(crimp_gc_builder_t* builder);  // Invalidates builder
 
-void crimp_gc_slot_set(crimp_gc_slot* dst, const void* src);  // Write barrier
+CRIMP_GC_API void crimp_gc_slot_set(crimp_gc_slot* dst, const void* src);  // Write barrier
 
 // HANDLES
 /////////////////////////////////
@@ -89,9 +104,9 @@ void crimp_gc_slot_set(crimp_gc_slot* dst, const void* src);  // Write barrier
 // FRAME
 
 // these should probably be macros
-void crimp_gc_frame_alloc();
-crimp_gc_slot* crimp_gc_frame_push();
-void crimp_gc_frame_dealloc(int n);
+CRIMP_GC_API void crimp_gc_frame_alloc();
+CRIMP_GC_API crimp_gc_slot* crimp_gc_frame_push();
+CRIMP_GC_API void crimp_gc_frame_dealloc(int n);
 
 // FRAME
 /////////////////////////////////
@@ -99,9 +114,9 @@ void crimp_gc_frame_dealloc(int n);
 /////////////////////////////////
 // COLLECT/MALLOC
 
-void crimp_gc_collect();
-void crimp_gc_malloc(crimp_type_t* type);
-void crimp_gc_malloc_array(crimp_type_t* type, int count);
+CRIMP_GC_API void crimp_gc_collect();
+CRIMP_GC_API void crimp_gc_malloc(crimp_type_t* type);
+CRIMP_GC_API void crimp_gc_malloc_array(crimp_type_t* type, int count);
 
 // COLLECT/MALLOC
 /////////////////////////////////

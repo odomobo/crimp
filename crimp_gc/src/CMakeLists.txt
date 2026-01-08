@@ -4,8 +4,8 @@ file(GLOB_RECURSE CRIMP_GC_SOURCES "*.c")
 # TODO: need to handle windows separately...
 find_package(Threads REQUIRED)
 
-# Create static library
-add_library(crimp_gc STATIC 
+# Create shared library
+add_library(crimp_gc SHARED
     ${CRIMP_GC_SOURCES}
 )
 
@@ -13,6 +13,9 @@ add_library(crimp_gc STATIC
 target_include_directories(crimp_gc PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
+
+# Define CRIMP_GC_BUILD when building the library
+target_compile_definitions(crimp_gc PRIVATE CRIMP_GC_BUILD)
 
 # Link pthreads
 target_link_libraries(crimp_gc PUBLIC

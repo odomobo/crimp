@@ -4,11 +4,11 @@ A garbage collector library written in C17.
 
 ## Project Structure
 
-- `include/` - Public API headers
-- `src/` - Library implementation (builds to `libcrimp_gc.a`)
+- `include/` - Public API headers with symbol export macros
+- `src/` - Library implementation (builds to `libcrimp_gc.so` on Linux, `libcrimp_gc.dll` on Windows)
 - `test/` - Test executable that links against the library
 - `build/` - CMake build directory (out-of-tree builds)
-  - `build/lib/` - Static library output
+  - `build/lib/` - Shared library output
   - `build/bin/` - Test executable output
 
 ## Build System
