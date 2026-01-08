@@ -3,8 +3,7 @@ The basic premise of crimp is that it's a compiled, statically-typed c-like lang
 
 * automatic memory management via gc
 * classes (reference types), structs (value types), pointers to value types (unmanaged reference types)
-* no semantics around object lifetimes (no destructors, classes are just memory)
-* defer keyword (for cleaning up resources, in absense of destructors/raii)
+* defer keyword (for cleaning up resources; there are finalizers too, but they should ideally be limited to freeing memory)
 * exceptions (because go is awful)
 * eventually, generics (because every language needs them)
 

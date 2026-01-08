@@ -24,6 +24,8 @@ There will be 3 sources of roots: globals, shadow stack, handles. The shadow sta
 
 
 ## collection process
+Note: the collection process is laid out in more clarity in "more unsorted thoughts.txt"
+
 Here are the rough steps for the collection process:
 
 1:
@@ -128,11 +130,7 @@ The real object pointers will live on the shadow stack, and local variables will
 ## fat pointers
 So, I guess fat pointers will take 2 words instead of 1. Not a problem, really, but what it does mean is that there will have to be a special handle type for fat pointers, and that they will implicitly take 2 slots on the shadow stack. For example, if you push a fat pointer onto slot 0, it'll take up slots 0 and 1... Hm, no, that won't work. All pointers on the shadow stack need to be pointers to objects. Maybe it needs 2 regions: one for normal pointers, and one for fat pointers. Or maybe I need 2 shadow stacks. I think either approach would work just fine. Saving fat pointers elsewhere is no problem.
 
-I guess to prevent handle fragmentation, it might be best to have all handles be big enough to support fat pointers.
-
-We'll worry about this once we implement traits.
-
-Actually, scratch all of that. I want to pass fat pointers piecemeal, so we don't need any special handling for fat pointers. That's definitely the c way to do things!
+I guess to prevent handle fragmentation, it might be best to have all handles be big enough to support fat pointers. Or 2 different handle pools.
 
 
 ## gc thread on exit
@@ -140,12 +138,5 @@ Do we have to do something to let the GC thread die on program exit? Will the GC
 
 
 ## logging
-CrimpGc needs a logging function which logs to file and/or console. These are both enabled or disabled at runtime. If it logs to a file, then the filename has the start timestamp in it. Otherwise, I'm pretty happy with how it works currently.
+CrimpGc needs a logging function which logs to file and/or console. These can each be enabled or disabled at runtime. If it logs to a file, then the filename has the start timestamp in it. Otherwise, I'm pretty happy with how it works currently.
 
-
-## code organization
-Need to figure out how to organize the code... the state transitions are confusing. Maybe need to make a state transition diagram. The worker threads have different needs than the collector thread.  Also, what things need locks in order to access? The easiest approach is probably to make structs specific to that lock, and when accessing anything within the struct, then the lock needs to be held. Then it makes obvious separation.
-
-Then, we can have one struct for worker threads, and another struct for collector thread. The collector thread struct will have things like the global object lists (old objects), and global gray lists.
-
-These structs will also have cvs, relevant for whatever section of code they're responsible for. I think all of this is necessary in order for the code to make any sense.

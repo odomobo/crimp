@@ -80,11 +80,34 @@ Nope, don't allow it. Period. If it does something different, or takes different
 ## Variadic functions
 Initially don't support it, but eventually we probably want params arguments, like in c#, which is just syntatctic sugar for creating an array and passing it in.
 
+Although, we actually can do this without a memory allocation, if we use a special heap-allocated array, and then at the calling site, we don't expose the array itself, but rather expose some kind of iterable interface, like so:
+
+void foo(int... args) {
+	foreach (var arg in args) {
+		// ...
+	}
+	// these are ok
+	int len = varargs.length;
+	int first = varargs[0];
+	// error: type mismatch
+	int[] foo = args;
+	// error: unsupported type "int..."; varargs only allowed as input parameters
+	int... bar = args;
+	// allowed
+	int[] foo = varargs.ToList();
+	// also allowed (spread operator)
+	foo(args...);
+}
+
+The good thing is this would be c-friendly. It could be implemented like:
+
+Exception* foo(int argc, int[] argv);
+
 
 ## string formatting
 First off, every type will get the "ToString" trait (whatever that should be called), which by default is like "full.TypeName[0xPOINTER]", but you can explicitly specify the ToString(string format) function.
 
-Then, like in old c#, there will be some kind of a string.Format(string template, params ToString[] objects), which will act like c# I guess:
+Then, like in old c#, there will be some kind of a string.Format(string template, ToString... objects), which will act like c# I guess:
 str = string.Format("Name: {0}, ID: {1:D10}", name.ToUpper(), id);
 
 Then, maybe, we can have syntactic sugar for that, which looks like:
@@ -96,7 +119,7 @@ Note that primitives (like id) will automatically be boxed. So, for example, `10
 
 
 ## default parameters
-Hmm, maybe... could be nice? Could also be less explicit... or could cause confusion
+Hmm, maybe... could be nice? Could also be less explicit... or could cause confusion. Not for now, anyhow.
 
 
 ## finalizers
@@ -112,26 +135,23 @@ Use backtrace() or libunwind on posix (and whatever windows provides). Then, you
 
 
 ## multiple return values
-I think I really want this, if possible. It's seamless to c code. Just need to make the ergonomics suit multiple return values. It won't be achieved through a trick like "tuple unpacking". It'll be the real deal.
+In crimp, every function will have 0 or more return values. This is unlike c, where everything has a single return value.
 
-I imagine you should also be able to do something like:
+One thing that helps this design pattern is that all return values are facilitated by out parameters. So, 0 return values means 0 out parameters.
 
-a, b = b, a
+That means assignment statements need to support multiple assignment. This also means that calling a function and chaining its return value into the current expression is an exception rather than the rule in crimp:
 
-Although that's less important than the multiple return values in the first place.
+Let's take a look at this:
 
-I guess the syntax would be something like:
+foo();
+bar() int;
+baz() double, double;
 
-a, b = mult();
-
-or:
-
-int a, int b = mult();
-
-You can't do . on something with multiple return values, or pass it directly into anything:
-
-mult().second; // error
-foo(mult());  // error
+foo() + 10; // error, because foo doesn't return any value
+bar() + 20; // good
+baz() + 3.33; // bad, because baz returns 2 values
+var x: double;
+x, var y: double = baz(); // good
 
 
 ## fast failure in c
@@ -166,45 +186,17 @@ RTTI can be used to implement things like json encoding and decoding, ORM, etc, 
 
 
 ## Generics
-I don't know how to implement them, but we definitely need them, one way or another. I'm not sure how we prevent code duplication all over the place.
+I had a big, long writeup on generics, but I changed my mind on it. Instead, let's handle generics the way c# does:
 
-I'm also not sure how we should handle monomorphization. Do we just make tons of copies of things willy-nilly? Also, in order for other code to use our library's generics, does that mean we need to distribute the source code for this particular generic? Do we take java's silly approach to generics? Need to ponder on this......
+Monomorphize as little as possible. When it's defined, the dynamic specialization is always monomorphized, but other specializations are only created for value types.
 
-All I know is, we need generics, in some form or another!
+The way it's implemented from a compilation-standpoint, is that every monomorphization of every generic that's required in a particular module is noted, and then it will create a monomorphizations_partial.o file of just the monomorphizations which haven't already been provided by other modules it depends on. Then, when the application is being built, it will link all the monomorphizations_partial.o object files together into a single dynamic library, which is used by all modules.
 
-What I really don't want is buffer[byte] to be backed by an array of boxed bytes. That would be insane and ridiculous.
+This is possible because of the observation that crimp code always ultimately results in the compilation of a crimp executable. Crimp libraries cannot be used as-is because of their crimp runtime dependency.
 
-What could potentially work, is hidden type parameters which get passed into the function/constructor at runtime, and which dictate all memory operations. So, a buffer copies TSize bytes at a time. I think this would be probably the best solution given the constraints. And maybe the programmer can explicitly reify specific versions of the function or type, but only in the library... and I actually don't like that one bit. It gets really confusing as to what will actually happen, since it's all hidden from the user (and even from the library designer, to some extent).
+Note that all the monomorphizations are marked as "inline" functions, to allow for multiple sibling modules to have duplicate monomorphizations without causing a duplicate symbol error during linking.
 
-Thinking about it, I definitely want types with type parameters to receive type structs in the constructor. And, exactly the same for functions with type parameters. Even if we always know the size, we should always make it explicit so c has a stable abi to work with. Then, when the function or type method is manipulating data, they will check the type's size and use that to orchestrate its data manipulations.
-
-Accessing field generics from c code is gonna be a pain in the butt. It'll have to be done dynamically I guess... what a mess!
-
-Maybe there's justification for reifying generic types, and having a generic type cache that the generic types get added to.
-
-If you create a Foo<Bar, Baz> for the first time, it reifies a Foo<Bar, Baz> type for you, but anytime after that, it gets taken from the cache. This seems very reasonable, actually... Then the concrete generic types will know their actual fields and field offsets, and know their actual size. And then we don't need special constructors.
-
-You know, I really think this could work. Reified generic types with a cache. Methods use the type parameters from the generic type to do anything they need to do (like allocating and copying memory), not to mention performing trait lookups when necessary. And then generic functions use the type parameters that were passed to do their logic.
-
-Oh, inline generic methods and functions will use all type data available. So they will be maximally performant, anyhow.
-
-Generic parameters passed into functions will always be passed through a pointer, because we don't know the size ahead of time. It's important that the function doesn't modify the original (for example, if passing a double in, we shouldn't modify the original double, because that wouldn't have been possible with pass-by-value). Probably need to use alloca to put stuff on the stack (of dynamic size).
-
-I want numeric "type" parameters too, not just "type" type parameters. The reason for this is then it gives us the ability to have fixed-sized arrays in structs.
-
-Ok, I just realized, we definitely need to give concrete types to c (and probably concrete wrappers around generic functions). The concrete types are necessary - how else will the c code be able to use something like:
-
-class Foo<TType, ICount> {
-	Bar b;
-	TType[ICount] values;
-}
-
-in a function which receives a: Foo<Baz, 10>. It's easy when it receives this:
-
-class Foo_Baz_10 {
-	Bar b;
-	Baz[10] values;
-}
+This delta compilation of monomorphizations should reduce the amount of compilation required per compilation.
 
 
 ## Arrays
@@ -218,52 +210,66 @@ I also like another idea of a buffer writer type, which buffers for another writ
 
 
 ## variable-length types
-I think variable-length types should be a first-class feature of the language. They will all have the exact same format:
+I'm thinking that variable-length types will work through overriding the allocation function, which will then allow you to allocate with a custom size. Then, it's up to you to handle data access. Have an example:
 
-class Foo {
-    // some stuff here
-	Bar[] dynamic;
+struct ArrayImpl {
+	_header: TypeHeader; // this is crucial
+	length: int; // should be const, but we assign to it during object creation, so easier this way
+	data: []void;
 }
 
-This will compile to something like:
+class Array[T] {
+	length: const int;
+	// note: data is not exposed through the class, only the impl
+	
+	// so I guess, _call is a special keyword so you can do:
+	// Type() instead of Type._call() (although the latter would still be valid)
+	// Another thing to figure out: if we make constructors like this, then that means that we'll need some special logic around const...........
+	unsafe fn _call(length: int) Array[T] {
+		var impl: *void = allocBySize(sizeof(ArrayImpl) + sizeof(T)*length);
+		impl->_header = getTypeHeader[Array[T]]();
+		impl->length = length;
+		var this = castPtrToClass[Array[T]](impl); // maybe there will be some logic around this?
 
-struct Foo {
-    // some stuff here
-	int length;
-	Bar[0] dynamic;
-};
-
-But there will be a special allocator for variable-length types, which will allocate the correct size, for whatever count dynamic is supposed to be. Then, array indexes into dynamic will be bounds-checked (by default, of course). And c can still use it.
-
-With this approach, then c#-style arrays can be implemented as such:
-
-class Array<T> {
-	T[] data;
+		// this logic isn't necessary, because alloc is guaranteed to 0-initialize memory, which is what this logic also does
+		for var i = 0; i < length; i = i+1 {
+			this.set(i, T.default);
+		}
+		
+		return this;
+	}
+	
+	unsafe mth _getArrayImpl() *ArrayImpl {
+		return *ArrayImpl(get_ptr(this)); // or whatever syntax we use to cast a class to a pointer
+	}
+	
+	// in reality, get and set would be operator overloads for []. Possibly implemented through traits
+	unsafe mth get(ix: int) T {
+		if int < 0 || >= length {
+			throw new IndexOutOfRangeException();
+		}
+		
+		var arrayImpl = _getArrayImpl();
+		var dataPtr = *T(&arrayImpl->data);
+		return dataPtr[ix};
+	}
+	
+	unsafe mth set(ix: int, val: T) {
+		// ...
+	}
 }
+
+Basically, variable-length types should be very rare, so let's just give full flexibility on how you wish to accomplish it.
+
+
+## constructors
+I guess all constructors should be named constructors. If you want a default constructor, name it something like "_call", which will allow for syntactic sugar for call syntax on the class. Behind the scenes, constructors will be functions which will first allocate data based on the size of the class, and then set it to "this", and allow you to modify const values on "this". Otherwise, you can perform construction yourself by allocating memory, 
 
 
 ## inline functions
-If a function is inlineable, then its code needs to be provided in the module package. No two ways about it.
+I had a big writeup on inline functions, but really, it should work like this:
 
-In general, when building against a module package, you don't necessarily need the source code, but you need more than just the dll. In the case of inline functions, their source code needs to be provided.
-
-Actually, "inline" functions should really be "source-provided" functions. Because it won't only be used for inlining - it'll also be used for any kind of monomorphization. Even though they are used the same way, it should be immediately apparent to the programmer when a source-provided generic function is calling a dynamic generic function, and it should be a warning (which can be disabled). Actually, source-provided functions should be able to be called either way. So, for example:
-
-void @Foo<T>(T value) {
-	Bar<T>(value); // warning; source-provided generic function calling a dynamic generic function
-	Quux<T>(value); // warning; source-provided generic function calling a dynamic generic function
-	@Quux<T>(value); // no warning; this should be efficient; if Foo is called dynamically, this will use the dynamic version as well
-}
-
-Note that the type parameters will be optional when calling the functions, since it can be inferred. Syntactically, maybe we should keep the <>, just to make it obvious that it's a generic function, since generics have special considerations. Like this:
-
-void @Foo<TType>(TType value) {
-	@Quux<>(value);
-}
-
-In that example, Foo is source-provided, Bar is a dynamic-only generic function. Quux is a source-provided generic function, but we call it both in its dynamic form as well as its source-provided form. The last one is the only one that has some guarantee of optimization.
-
-One key aspect: when exporting to c, you can choose to export the dynamic generic version of classes and functions, as well as specific concrete versions of classes and functions (which are forced to be monomorphized). Modules are responsible for their own monomorphization, which is never DLL exported to other libraries, so that can cause bloat if used incorrectly.
+If the compiler thinks a function will be short enough to be worth inlining, it'll provide the source in addition to exposing a concrete function. Then, when the programmer uses the function, the compiler will try to inline it if it thinks it's worth it.
 
 
 ## compiler implementation
@@ -271,171 +277,60 @@ initially, the compiler will be written in c#, and will read crimp files and out
 
 
 ## fat pointers
-I long had this idea that a fat pointer would be a single structure that contains both the pointer and the vtable... but actually, why not have 2 separate parameters? It sounds like the c way. Vtables don't need to be memory managed. And, this also gives the ability to pass an extra fat pointer (maybe with 2 or 3 vtables, for types that you want to do a lot with).
+For polymorphism, we'll pass fat pointers everywhere with [object pointer, trait vtable]. This is because looking up a vtable for a type is relatively expensive, but if you already have the vtable, then 
+
+Fat pointers will be a structure type that looks like:
+
+struct TraitName {
+	void* ptr;
+	TraitName_vtable* vt;
+};
+
+and then the vtables will look like:
+
+struct TraitName_vtable {
+	fp_1* fp_1;
+	fp_2* fp_2;
+	// ...
+};
+
+then traitHandles will look like:
+
+then c code will use it like:
+
+Hashable_tHBuilder* h_b = Hashable_tHBuilder_create();
+unwrap(  get_hashable(&h_b->slot)  );
+Hashable_tHandle* h = Hashable_tHBuilder_finish(h_b);
+int hash
+unwrap(  h->data.vt->getHash(h->data.ptr, &hash)  );
+unwrap(  takes_hashable(h->data)  );
+Hashable_tHandle_release(h);
 
 
 ## traits
-Classes, structs, and primitives can all have traits. Boxed and unboxed versions of the same primitives have the same traits (or at least, the same trait behavior). However, pointers to structs don't have that trait behavior (pointers have their own traits).
+Classes, structs, and primitives can all have traits. Boxed and unboxed versions of the same primitives have the same trait behavior. However, pointers to structs don't have that trait behavior (pointers have their own traits).
 
-Let's handle traits the way rust does (although maybe we'll use implicit instead of explicit implementations... like duck typing). As long as we can attach traits to arbitrary types (including types we don't own), this will give us the ability to perform operator overloading.
+Let's handle traits, not the way rust handles traits, but the way c# handles interfaces. Then, when using trait-implemented logic, it must be accessed explicitly:
 
-So for example:
+// note: Foo implements TBar, and TBar specifies baz(int)
+Foo f = ...;
+TBar(f).baz(10);
+// this is an error
+f.baz(10);
 
-trait Add<Rhs=Self> {
-    type Output;
+Hmm, I kinda like that casting syntax.
 
-    fn add(self, rhs: Rhs) -> Self::Output;
-}
+Ok, whenever using a generic trait, you always have to be explicit with type parameters:
 
-impl Add<BigInt> for int {
-    type Output = BigInt;
-
-    fn add(self, other: BigInt) -> BigInt {
-        return other.AddInt(self);
-    }
-}
-
-Something like that anyhow. The general rule is: only export traits either for a type you own, or which parameterize on a type you own. Otherwise, if you depend on 2 libraries which implement the same trait, then you'd get a linker error. Not good!!!!
-
-
-## custom traits
-That is, if you want to provide your own trait (or multiple traits) for some class or struct, maybe you can, but you have to be explicit if using any trait other than the default... No... this is no good!
-
-Another way to say that: there can only be one implementation of a particular trait, for a type with particular type parameters.
-
-
-## Trait implementations parameterized on other traits
-This is getting so confusing. What about if we have something like:
-
-trait Add2<Rhs=Self> {
-    type Output;
-
-    fn add2(self, rhs: Rhs) -> Self::Output;
-}
-
-and then we have an implementation like:
-
-impl @Add2<Add> for Add {
-    type Output = Add;
-
-    fn add(self, other: Add) -> Add {
-        return other.Add(self);
-    }
-}
-
-Ok, there's a lot going on here. Let's unpack...
-
-We have a source-provided implementation of Add2 that works for any combination of Add types. Interestingly, its output is always going to be a fat pointer, even if it's monomorphized somehow. I think this is the correct way to do it (without requiring a fat pointer):
-
-impl @Add2<Add> for Add {
-    type Output = Rhs::Output;
-
-    fn add(self, other: Add) -> Output {
-        return other.Add(self);
-    }
-}
-
-But then, when there's a source-provided trait, how do you specify that implementation instead of the dynamic implementation... this is where it gets very confusing to me.
-
-Maybe traits are _always_ source-provided. And they provide duck-typing into a method for the type they're acting upon... no, that's not right. We might need the following:
-
-impl Add<int> for Foo {
-    type Output = int;
-
-    fn add(self, other: int) -> int {
-        // special int logic
-    }
-}
-
-impl Add<float> for Foo {
-    type Output = float;
-
-    fn add(self, other: float) -> float {
-        // special float logic
-    }
-}
-
-We can't do duck typing there.
-
-There's another problem:
-
-impl Iterator for Counter {
-    type Item = u32;
-
-    fn next(&mut self) -> Self::Item { ...
-}
-
-impl Iterator for FCounter {
-    type Item = f32;
-
-    fn next(&mut self) -> Self::Item { ...
-}
-
-??? Foo(Iterator it) {
-	return it.first();
-}
-
-What kind of return type does Foo have? Iterator knows its own return type, but we certainly don't know it at compile time.
-
-
-## Not traits, but interfaces
-Ok, I talked on and on at length about traits. I don't think I want traits. I think I want interfaces, the way C# does it. I'm trying to think of how they interact with source-provided implementations, but I think I've got it:
-
-interface IFoo<T> : where T is IBar {
-	T @Baz(Self other);
-	T Quux(Self other);
-}
-
-This is saying that Baz must be source-provided, but there's no such requirement for Quux. It's limiting because it's fundamentally duck-typed (unless we provide workarounds for it, which... maybe!), but the approach is good, because now there are no unspecified return values.
+// note: Foo implement TQuux[int], and TQuux[T] specifies asdf(int)
+Foo f = ...;
+TQuux[int](f).asdf(20);
+// this is an error, because no type parameter is specified:
+TQuux(f).asdf(20);
 
 
 ## operator overloading
-Maybe we should support this at some point, but for now, it's out of scope. Honestly, it's probably a good idea.........
-
-
-## The relationship between generics, interfaces, and source-provided functions
-Honestly, I haven't really figured out the relationship between generics and interfaces, but there are 3 rules I'd like to enforce:
-
-1. Any generic function/method or method on generic type must be source-provided.
-2. Any generic function/method or method on generic type will always have a dynamic monomorphization, which uses dynamic dispatch everywhere, calls the dynamic monomorphization of other classes.
-3. When a generic function/method or method on generic type calls another generic, it must call the source-provided version (else face a strong warning).
-
-This means that if you wish to use the dynamic monomorphization of a particular generic function/method, then it will not cause additional monomorphization (only the ones that come with the language). But, if you choose, you can always use the concrete monomorphization, which will cause a chain of monomorphizations to all be created. So, as the programmer, you can control the number of monomorphizations. Maybe you can even get statistics on that if you wish.
-
-This has a good property, which hopefully is obvious, but not necessarily: if a function is concrete (not generic), it's not possible for it to ever call more than one monomorphization of an individual generic function. It concretely knows the monomorphization it will be using (possibly the dynamic one).
-
-Another interesting property is that monomorphization cannot be triggered by non-generic (concrete) functions. This is unlike rust, I believe, which will do monomorphization on its own. In crimp, you have control over monomorphization.
-
-One other thing: each monomorphism of a generic type will have a vtable, so that all of its methods can be called from a dynamic context (dynamic dispatch).
-
-
-## inline vs monomorphization
-These are both things that require source-provided functions, but they serve different purposes. When calling inline functions, honestly, the programmer shouldn't have to think about it. It should just happen automatically, due to the performance benefits (and negligible code bloat, enforced by the compiler). On the other hand, when calling a generic function, the programmer should explicitly specify whether they want the generic or concrete version. Also:
-
-1. If a function is inline, and they specify the generic version, and the concrete version is inlineable, it should do that (that will be the highest performance).
-2. Otherwise, if the concrete version isn't inlineable, but the generic version is, it should inline the generic version (that's what they actually asked for).
-3. Otherwise, if the function is specified as inline, but it's not inlineable as either the generic version nor the concrete version, then it shouldn't be inlined and the generic version should be called (they asked to call the generic version).
-
-What syntax to use when specifying the concrete or generic form of a function or method?
-
-foo<int>(int bar);
-@foo<int>(int bar);
-
-g.baz<int>(int bar);
-g.@baz<int>(int bar);
-
-Seems pretty good to me.
-
-I still feel like I'm missing something around calling the generic form of a function, and automatic boxing. Like for example, something like:
-
-my_append<T>(IAppendable<T> appendable, T value) {
-	appendable.append(value);
-}
-
-List<int> list;
-my_append(list, 10);
-
-I guess 10 would have to get boxed, and then later unboxed. Wait, no! In cases like this, value types are passed by read-only reference. Yeah, that's right; templated value-types are passed by read-only reference, when using a dynamic monomorphization of a generic function, and they're treated as copy-on-write. And the caller makes a copy of the value type (if necessary) before passing it. If that value was anywhere but on the stack already.
+Maybe we should support this at some point, but for now, it's out of scope. Honestly, it's probably a good idea......... Probably can handle it with traits.
 
 
 ## c helper functions

@@ -1,0 +1,36 @@
+# 2026-01-07
+
+Eventually, the language will probably need compile-time code execution, like most modern languages have. Cases considered:
+
+* de/serialization
+* compile-time regex compilation
+* string formatting & printf
+* compile-time SQL validation
+* automatic traits (clone, eq, hash)
+* orm
+
+This breaks down to a few cases:
+
+1. compile-time validation of some compile-time known data (string formatting & printf, compile-time SQL validation).
+This needs a distinction between compile-time-known data and runtime data... yuck. So either it needs a full comptime system, or it will be very limited in scope, or we should just not allow this. I think we should just not allow this.
+
+2. automatic trait implementation for arbitrary concrete types (de/serialization, automatic traits, orm).
+This is the real use case! If there's no solution given for this (of any kind), then the language will be clunky and difficult.
+
+3. compile-time const expression evaluation, building arbitrary values (compile-time regex compilation)
+This is a nice-to-have, but provides very little real benefit.
+
+
+Ok, so #2 is the only use-case I'm considering. I did some analysis, and here's a conclusion I made: when comparing the compile times of go vs rust, the key difference isn't that go has some special features that allow it to have faster compile times, but rather that when you have a language with tools, people use those tools. Rust has a lot of compile-time coding tools, and go has almost none. For example, rust has generics and automatic trait implementation, and the combination of those cause combinatorial explosions of compile-time code generation. It's no surprise that rust takes 100 times longer to compile than go, if rust's compiler has to deal with 100x the amount of code.
+
+It's like the goldfish principle: a programmer will expand their feature usage to whatever is available. So in a language with traits and generics that are so easy to use, rust programmers depend on them.
+
+So really, the reason go has fast compile times is that the language fights against the very tools that the go programmer has at their disposal. It's so difficult to perform compile-time code generation that go programmers tend to forego that, and instead depend on approaches which have a slightly higher runtime cost.
+
+So I had this sophisticated idea of allowing for arbitrary compile-time code execution within a sandboxed lua environment, so programmers could write trait-generation code in lua scripts, but... if I do this, then I think I'm guaranteeing long compile times, specifically because if there's a nice, useful feature, then programmers should use that feature.
+
+So, instead, what other approaches can be used to facilitate de/serialization, automatic traits, orm? Well, if we want to reduce compile-time bloat, we need "generic" functions that can be reused in a lot of contexts (instead of specialized functions per type). This means that they need to be dynamic, which means traditional reflection-powered code. What this means is that reflection needs to be treated as a first-class feature of the language, so it's easy to use and as performant as can be. This will slow down things like de/serialization, but hopefully not unacceptably so. Because reflection is treated as a first-class feature of the language, a lot of care will go into making sure it is the best that it can be.
+
+Another approach could be ahead-of-time code generation, but I won't provide that as a language feature. That's always an option for any language, of course. The thing I will try to do is make the language clean and simple enough to be code-generation friendly.
+
+Ok, so no compile-time execution! The standard approach is reflection, which will be designed to be efficient and friendly to use.
