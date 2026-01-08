@@ -68,7 +68,7 @@ void crimp_gc_init() {
     // we only do this for logging purposes
     // TODO: we should probably remove this eventually, if we don't need it for logging
     _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
-    assert(_crimp_gc_thread != NUll); // TODO: better check
+    assert(_crimp_gc_thread != NULL); // TODO: better check
     _crimp_gc_thread->thread_id = -1;
 
     // end init for gc_collector thread
@@ -85,7 +85,7 @@ void crimp_gc_init() {
 void crimp_gc_thread_register() {
     log("entered");
     _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
-    assert(_crimp_gc_thread != NUll); // TODO: better check
+    assert(_crimp_gc_thread != NULL); // TODO: better check
 
     pthread_mutex_lock(&_crimp_gc_gc_mutex);
     {

@@ -32,8 +32,6 @@ typedef struct crimp_gc_thread_t {
     // TODO: thread local mutex
 } crimp_gc_thread_t;
 
-extern thread_local crimp_gc_thread_t* _crimp_gc_thread;
-
 // TODO: "mark function" type typedef
 
 typedef struct crimp_type_t {
@@ -43,6 +41,8 @@ typedef struct crimp_type_t {
 } crimp_type_t;
 
 typedef struct crimp_gc_slot_internal* crimp_gc_slot;
+
+CRIMP_GC_API extern thread_local crimp_gc_thread_t* _crimp_gc_thread;
 
 // TYPES
 /////////////////////////////////
