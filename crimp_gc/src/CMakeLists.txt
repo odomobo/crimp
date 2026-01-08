@@ -26,4 +26,6 @@ set_target_properties(crimp_gc PROPERTIES
     UNITY_BUILD ON
     UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
     # OUTPUT_NAME "crimp_gc"
+    C_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
 )
