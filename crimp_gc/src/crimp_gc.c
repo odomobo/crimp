@@ -7,8 +7,17 @@
 #include <stdatomic.h>
 #include "crimp_gc.h"
 
-// for logging purposes only
+////////////////////////////////////////////////////////////
+// Logging
+
 pthread_mutex_t _crimp_gc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+bool _crimp_gc_console_logging_enabled = true;
+bool _crimp_gc_file_logging_enabled = false;
+FILE* _crimp_gc_file_logging = NULL;
+
+// Logging
+////////////////////////////////////////////////////////////
+
 
 thread_local crimp_gc_thread_t* _crimp_gc_thread = NULL;
 
@@ -60,6 +69,16 @@ static void* _crimp_gc_collector(void* arguments) {
 }
 
 void crimp_gc_init() {
+	/////////////////////////////////
+	// LOGGING
+	if (_crimp_gc_file_logging_enabled) {
+		char filename[1024];
+		sprintf(filename, "crimp_gc_%lu.log", (unsigned long)time(NULL));
+		_crimp_gc_file_logging = fopen(filename, "w");
+	}
+	// LOGGING
+	/////////////////////////////////
+
     log("entered");
 
     /////////////////////////////////

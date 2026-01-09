@@ -51,13 +51,24 @@ CRIMP_GC_API extern thread_local crimp_gc_thread_t* _crimp_gc_thread;
 // TESTING
 
 CRIMP_GC_API void print_thread_list();
+CRIMP_GC_API extern bool _crimp_gc_console_logging_enabled;
+CRIMP_GC_API extern bool _crimp_gc_file_logging_enabled;
+CRIMP_GC_API FILE* _crimp_gc_file_logging;
 
 CRIMP_GC_API extern pthread_mutex_t _crimp_gc_log_mutex;
-#define log(...) do{ \
-    pthread_mutex_lock(&_crimp_gc_log_mutex); \
-    _crimp_gc_thread != NULL ? fprintf(stderr, " (%02d) [%s] ", _crimp_gc_thread->thread_id, __func__) : fprintf(stderr, " (\?\?) [%s] ", __func__); \
-    fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); \
-    pthread_mutex_unlock(&_crimp_gc_log_mutex);}while(false)
+#define log(...) do{  \
+	pthread_mutex_lock(&_crimp_gc_log_mutex);  \
+	if (_crimp_gc_console_logging_enabled) {  \
+		_crimp_gc_thread != NULL ? fprintf(stderr, " (%02d) [%s] ", _crimp_gc_thread->thread_id, __func__) : fprintf(stderr, " (\?\?) [%s] ", __func__);  \
+		fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");  \
+	}  \
+	if (_crimp_gc_file_logging != NULL) {  \
+		_crimp_gc_thread != NULL ? fprintf(_crimp_gc_file_logging, " (%02d) [%s] ", _crimp_gc_thread->thread_id, __func__) : fprintf(_crimp_gc_file_logging, " (\?\?) [%s] ", __func__);  \
+		fprintf(_crimp_gc_file_logging, __VA_ARGS__); fprintf(_crimp_gc_file_logging, "\n");  \
+		fflush(_crimp_gc_file_logging);  \
+	}  \
+	pthread_mutex_unlock(&_crimp_gc_log_mutex);  \
+}while(false)
 // #define log(...) 
 
 // TESTING
