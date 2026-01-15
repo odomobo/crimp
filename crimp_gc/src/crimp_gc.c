@@ -10,48 +10,48 @@
 ////////////////////////////////////////////////////////////
 // Logging
 
-pthread_mutex_t _crimp_gc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
-bool _crimp_gc_console_logging_enabled = true;
-bool _crimp_gc_file_logging_enabled = false;
-FILE* _crimp_gc_file_logging = NULL;
+pthread_mutex_t _crimpGc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+bool _crimpGc_console_logging_enabled = true;
+bool _crimpGc_file_logging_enabled = false;
+FILE* _crimpGc_file_logging = NULL;
 
 // Logging
 ////////////////////////////////////////////////////////////
 
 
-thread_local crimp_gc_thread_t* _crimp_gc_thread = NULL;
+thread_local crimpGc_appThread_t* _crimpGc_appThread = NULL;
 
 // this mutex is used for every global gc lock, which should be very rare anyhow
-pthread_mutex_t _crimp_gc_gc_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t _crimpGc_gc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 ////////////////////////////////////////////////////////////
-// These need to be locked with _crimp_gc_gc_mutex to be used
+// These need to be locked with _crimpGc_gc_mutex to be used
 
-int _crimp_gc_next_thread_id = 0;
-crimp_gc_thread_t* _crimp_gc_thread_list = NULL;
+int _crimpGc_next_thread_id = 0;
+crimpGc_appThread_t* _crimpGc_appThread_list = NULL;
 
 // End locked globals
 ////////////////////////////////////////////////////////////
 
-pthread_t _crimp_gc_collector_pthread;
+pthread_t _crimpGc_collector_pthread;
 
 void print_thread_list()
 {
     printf("thread list: [");
-    pthread_mutex_lock(&_crimp_gc_gc_mutex);
+    pthread_mutex_lock(&_crimpGc_gc_mutex);
     {
-        crimp_gc_thread_t* t = _crimp_gc_thread_list;
+        crimpGc_appThread_t* t = _crimpGc_appThread_list;
         while(t != NULL)
         {
             printf("%d, ", t->thread_id);
             t = t->next_thread;
         }
     }
-    pthread_mutex_unlock(&_crimp_gc_gc_mutex);
+    pthread_mutex_unlock(&_crimpGc_gc_mutex);
     printf("]\n");
 }
 
-static void* _crimp_gc_collector(void* arguments) {
+static void* _crimpGc_collector(void* arguments) {
     (void)arguments;
     log("entered");
 
@@ -68,13 +68,13 @@ static void* _crimp_gc_collector(void* arguments) {
     return NULL;
 }
 
-void crimp_gc_init() {
+void crimpGc_init() {
 	/////////////////////////////////
 	// LOGGING
-	if (_crimp_gc_file_logging_enabled) {
+	if (_crimpGc_file_logging_enabled) {
 		char filename[1024];
-		sprintf(filename, "crimp_gc_%lu.log", (unsigned long)time(NULL));
-		_crimp_gc_file_logging = fopen(filename, "w");
+		sprintf(filename, "crimpGc_%lu.log", (unsigned long)time(NULL));
+		_crimpGc_file_logging = fopen(filename, "w");
 	}
 	// LOGGING
 	/////////////////////////////////
@@ -86,50 +86,50 @@ void crimp_gc_init() {
 
     // we only do this for logging purposes
     // TODO: we should probably remove this eventually, if we don't need it for logging
-    _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
-    assert(_crimp_gc_thread != NULL); // TODO: better check
-    _crimp_gc_thread->thread_id = -1;
+    _crimpGc_appThread = malloc(sizeof(*_crimpGc_appThread));
+    assert(_crimpGc_appThread != NULL); // TODO: better check
+    _crimpGc_appThread->thread_id = -1;
 
     // end init for gc_collector thread
     /////////////////////////////////
 
     log("initialization completed; spawning collector thread");
 
-    int result_code = pthread_create(&_crimp_gc_collector_pthread, NULL, _crimp_gc_collector, NULL);
+    int result_code = pthread_create(&_crimpGc_collector_pthread, NULL, _crimpGc_collector, NULL);
     // TODO: better validation than simple assert... although we probably need to exit the application anyhow
     assert(!result_code);
     log("exited");
 }
 
-void crimp_gc_thread_register() {
+void crimpGc_thread_register() {
     log("entered");
-    _crimp_gc_thread = malloc(sizeof(*_crimp_gc_thread));
-    assert(_crimp_gc_thread != NULL); // TODO: better check
+    _crimpGc_appThread = malloc(sizeof(*_crimpGc_appThread));
+    assert(_crimpGc_appThread != NULL); // TODO: better check
 
-    pthread_mutex_lock(&_crimp_gc_gc_mutex);
+    pthread_mutex_lock(&_crimpGc_gc_mutex);
     {
-        _crimp_gc_thread->thread_id = _crimp_gc_next_thread_id++;
+        _crimpGc_appThread->thread_id = _crimpGc_next_thread_id++;
         // add to threads list
-        _crimp_gc_thread->next_thread = _crimp_gc_thread_list;
-        _crimp_gc_thread_list = _crimp_gc_thread;
+        _crimpGc_appThread->next_thread = _crimpGc_appThread_list;
+        _crimpGc_appThread_list = _crimpGc_appThread;
     }
-    pthread_mutex_unlock(&_crimp_gc_gc_mutex);
+    pthread_mutex_unlock(&_crimpGc_gc_mutex);
     log("exited");
 }
 
-void crimp_gc_thread_unregister() {
+void crimpGc_thread_unregister() {
     log("entered");
     
-    pthread_mutex_lock(&_crimp_gc_gc_mutex);
+    pthread_mutex_lock(&_crimpGc_gc_mutex);
     {
         // remove from threads list
-        crimp_gc_thread_t** t_ref = &_crimp_gc_thread_list;
+        crimpGc_appThread_t** t_ref = &_crimpGc_appThread_list;
         while (true)
         {
             // we should find the current thread in the list somewhere...
             assert(*t_ref != NULL);
             // if we found the pointer to the current thread, update it to point to the next thread, and break
-            if (*t_ref == _crimp_gc_thread)
+            if (*t_ref == _crimpGc_appThread)
             {
                 *t_ref = (*t_ref)->next_thread;
                 break;
@@ -138,8 +138,8 @@ void crimp_gc_thread_unregister() {
             t_ref = &(*t_ref)->next_thread;
         }
     }
-    pthread_mutex_unlock(&_crimp_gc_gc_mutex);
-    free(_crimp_gc_thread);
-    _crimp_gc_thread = NULL;
+    pthread_mutex_unlock(&_crimpGc_gc_mutex);
+    free(_crimpGc_appThread);
+    _crimpGc_appThread = NULL;
     log("exited");
 }

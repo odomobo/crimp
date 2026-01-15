@@ -40,9 +40,9 @@ The garbage collector provides:
 
 ### Key Types
 
-- `crimp_gc_handle` - Read-only handle with refcount
-- `crimp_gc_builder` - Mutable builder handle
-- `crimp_gc_slot` - Opaque pointer to GC-managed slot
+- `crimpGc_handle` - Read-only handle with refcount
+- `crimpGc_builder` - Mutable builder handle
+- `crimpGc_slot` - Opaque pointer to GC-managed slot
 - `crimp_type` - Type descriptor (contains size, TODO: mark function)
 
 ## Implementation Status

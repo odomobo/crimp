@@ -10,7 +10,7 @@ thread_local int tl = 0;
 static void* run(void* arguments)
 {
     (void)arguments;
-    crimp_gc_thread_register();
+    crimpGc_thread_register();
     log("yep, this seemed to run on another thread!");
     log("tl is %d; setting to 3", tl);
     tl = 3;
@@ -21,7 +21,7 @@ static void* run(void* arguments)
     print_thread_list();
     log("tl is still %d", tl);
     log("ok, worker thread exiting");
-    crimp_gc_thread_unregister();
+    crimpGc_thread_unregister();
     return NULL;
 }
 
@@ -39,11 +39,11 @@ void foo()
 }
 
 int main(void) {
-    crimp_gc_init();
-    crimp_gc_thread_register();
+    crimpGc_init();
+    crimpGc_thread_register();
     print_thread_list();
     foo();
     print_thread_list();
-    crimp_gc_thread_unregister();
+    crimpGc_thread_unregister();
     return 0;
 }
