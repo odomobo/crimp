@@ -7,22 +7,28 @@
 #include <stdatomic.h>
 #include "crimp_gc.h"
 
+
 ////////////////////////////////////////////////////////////
-// Logging
+// LOGGING
 
 pthread_mutex_t _crimpGc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 bool _crimpGc_console_logging_enabled = true;
 bool _crimpGc_file_logging_enabled = false;
 FILE* _crimpGc_file_logging = NULL;
 
-// Logging
+// LOGGING
 ////////////////////////////////////////////////////////////
 
+
+////////////////////////////////////////////////////////////
+// THREAD GLOBALS
 
 thread_local crimpGc_appThread_t* _crimpGc_appThread = NULL;
 crimpGc_gcThread_t _crimpGc_gcThread;
 
-pthread_t _crimpGc_collector_pthread;
+// THREAD GLOBALS
+////////////////////////////////////////////////////////////
+
 
 void print_thread_list()
 {
@@ -98,7 +104,7 @@ void crimpGc_init() {
 
     log("initialization completed; spawning collector thread");
 
-    int result_code = pthread_create(&_crimpGc_collector_pthread, NULL, _crimpGc_collector, NULL);
+    int result_code = pthread_create(&_crimpGc_gcThread.data.pthread, NULL, _crimpGc_collector, NULL);
     // TODO: better validation than simple crimpGc_assert... although we probably need to exit the application anyhow
     crimpGc_assert(!result_code);
     log("exited");
