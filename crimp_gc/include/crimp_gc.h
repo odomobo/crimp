@@ -49,6 +49,23 @@ typedef struct crimpGc_slot_internal* crimpGc_slot;
 
 
 /////////////////////////////////
+// ACQUIRING MUTEXES
+//
+// When acquiring mutexes, if holding multiple ones, they must be done with this partial ordering:
+// 1. appThread->state.mutex
+// 2. appThread->data.mutex
+// 3. gcThread.state.mutex
+// 4. gcThread.data.mutex
+//
+// That's not to say that you have to hold all of them, but that if you have a lock on gcThread.state.mutex, you cannot hold appThread->state.mutex without first releasing gcThread.state.mutex. You are then free to reacquire gcThread.state.mutex afterwards.
+//
+// By enforcing this ordering, it prevents deadlocks.
+//
+// ACQUIRING MUTEXES
+/////////////////////////////////
+
+
+/////////////////////////////////
 // APP THREADS TYPES
 
 enum crimpGc_appThread_state_enum {
@@ -62,14 +79,14 @@ enum crimpGc_appThread_state_enum {
 };
 
 typedef struct crimpGc_appThread_state_t {
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex; // 1
     pthread_cond_t cv;
     enum crimpGc_appThread_state_enum state;
     bool cleared_for_concurrent_collection;
 } crimpGc_appThread_state_t;
 
 typedef struct crimpGc_appThread_data_t {
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex; // 2
     // TODO: roots shadow stack
     // TODO: roots handles
     // TODO: gray list
@@ -77,7 +94,7 @@ typedef struct crimpGc_appThread_data_t {
 
 struct crimpGc_appThread_t;
 
-// Note: need to hold _crimpGc_gcThread.data.mutex to modify appThread itself
+// Note: need to hold _crimpGc_gcThread.data.mutex to use appThread itself (but not for state or data)
 typedef struct crimpGc_appThread_t {
     int thread_id;
     struct crimpGc_appThread_t* next_thread;
@@ -101,13 +118,13 @@ enum crimpGc_gcThread_state_enum {
 };
 
 typedef struct crimpGc_gcThread_state_t {
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex; // 3
     pthread_cond_t cv;
     enum crimpGc_gcThread_state_enum state;
 } crimpGc_gcThread_state_t;
 
 typedef struct crimpGc_gcThread_data_t {
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex; // 4
     // TODO: stuff????
 } crimpGc_gcThread_data_t;
 

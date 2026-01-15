@@ -22,9 +22,6 @@ FILE* _crimpGc_file_logging = NULL;
 thread_local crimpGc_appThread_t* _crimpGc_appThread = NULL;
 crimpGc_gcThread_t _crimpGc_gcThread;
 
-// this mutex is used for every global gc lock, which should be very rare anyhow
-pthread_mutex_t _crimpGc_global_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 ////////////////////////////////////////////////////////////
 // These need to be locked with _crimpGc_global_mutex to be used
 
@@ -39,7 +36,7 @@ pthread_t _crimpGc_collector_pthread;
 void print_thread_list()
 {
     printf("thread list: [");
-    pthread_mutex_lock(&_crimpGc_global_mutex);
+    pthread_mutex_lock(&_crimpGc_gcThread.data.mutex);
     {
         crimpGc_appThread_t* t = _crimpGc_appThread_list;
         while(t != NULL)
@@ -48,7 +45,7 @@ void print_thread_list()
             t = t->next_thread;
         }
     }
-    pthread_mutex_unlock(&_crimpGc_global_mutex);
+    pthread_mutex_unlock(&_crimpGc_gcThread.data.mutex);
     printf("]\n");
 }
 
@@ -139,7 +136,7 @@ void crimpGc_thread_register() {
     _crimpGc_appThread = malloc(sizeof(*_crimpGc_appThread));
     crimpGc_assert(_crimpGc_appThread != NULL); // TODO: better check
 
-    pthread_mutex_lock(&_crimpGc_global_mutex);
+    pthread_mutex_lock(&_crimpGc_gcThread.data.mutex);
     {
         _crimpGc_appThread->thread_id = _crimpGc_next_thread_id++;
         // add to threads list
@@ -149,14 +146,14 @@ void crimpGc_thread_register() {
         _crimpGc_appThread_state_init(&_crimpGc_appThread->state);
         _crimpGc_appThread_data_init(&_crimpGc_appThread->data);
     }
-    pthread_mutex_unlock(&_crimpGc_global_mutex);
+    pthread_mutex_unlock(&_crimpGc_gcThread.data.mutex);
     log("exited");
 }
 
 void crimpGc_thread_unregister() {
     log("entered");
     
-    pthread_mutex_lock(&_crimpGc_global_mutex);
+    pthread_mutex_lock(&_crimpGc_gcThread.data.mutex);
     {
         // remove from threads list
         crimpGc_appThread_t** t_ref = &_crimpGc_appThread_list;
@@ -174,7 +171,7 @@ void crimpGc_thread_unregister() {
             t_ref = &(*t_ref)->next_thread;
         }
     }
-    pthread_mutex_unlock(&_crimpGc_global_mutex);
+    pthread_mutex_unlock(&_crimpGc_gcThread.data.mutex);
     free(_crimpGc_appThread);
     _crimpGc_appThread = NULL;
     log("exited");
