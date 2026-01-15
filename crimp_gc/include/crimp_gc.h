@@ -125,6 +125,8 @@ typedef struct crimpGc_gcThread_state_t {
 
 typedef struct crimpGc_gcThread_data_t {
     pthread_mutex_t mutex; // 4
+    int next_thread_id;
+    crimpGc_appThread_t* appThread_list;
     // TODO: stuff????
 } crimpGc_gcThread_data_t;
 
