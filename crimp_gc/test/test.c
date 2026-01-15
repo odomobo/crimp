@@ -1,9 +1,8 @@
-//#include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <threads.h>
-#include "crimp_gc.h"
+#include "crimpGc.h"
 
 thread_local int tl = 0;
 

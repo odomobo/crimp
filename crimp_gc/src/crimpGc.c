@@ -1,14 +1,15 @@
-//#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <threads.h>
 #include <stdatomic.h>
-#include "crimp_gc.h"
+
+#include "crimpGc.h"
+#include "shadowStack.h"
 
 
-////////////////////////////////////////////////////////////
+////////////////////////////////////////
 // LOGGING
 
 pthread_mutex_t _crimpGc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -17,17 +18,17 @@ bool _crimpGc_file_logging_enabled = false;
 FILE* _crimpGc_file_logging = NULL;
 
 // LOGGING
-////////////////////////////////////////////////////////////
+////////////////////////////////////////
 
 
-////////////////////////////////////////////////////////////
+////////////////////////////////////////
 // THREAD GLOBALS
 
 thread_local crimpGc_appThread_t* _crimpGc_appThread = NULL;
 crimpGc_gcThread_t _crimpGc_gcThread;
 
 // THREAD GLOBALS
-////////////////////////////////////////////////////////////
+////////////////////////////////////////
 
 
 void print_thread_list()
@@ -81,7 +82,7 @@ static void _crimpGc_gcThread_data_init(crimpGc_gcThread_data_t* data)
 }
 
 void crimpGc_init() {
-	/////////////////////////////////
+	////////////////////////////////////////
 	// LOGGING
 	if (_crimpGc_file_logging_enabled) {
 		char filename[1024];
@@ -89,18 +90,18 @@ void crimpGc_init() {
 		_crimpGc_file_logging = fopen(filename, "w");
 	}
 	// LOGGING
-	/////////////////////////////////
+	////////////////////////////////////////
 
     log("entered");
 
-    /////////////////////////////////
-    // init for gc_collector thread
+    ////////////////////////////////////////
+    // init for gcThread
 
     _crimpGc_gcThread_state_init(&_crimpGc_gcThread.state);
     _crimpGc_gcThread_data_init(&_crimpGc_gcThread.data);
 
-    // end init for gc_collector thread
-    /////////////////////////////////
+    // end init for gcThread
+    ////////////////////////////////////////
 
     log("initialization completed; spawning collector thread");
 

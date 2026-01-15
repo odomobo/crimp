@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <threads.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 // Symbol visibility for shared library
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -30,7 +31,7 @@
 } while (0)
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // TYPES
 
 // TODO: "mark function" type typedef
@@ -45,10 +46,10 @@ typedef struct crimpGc_slot_internal* crimpGc_slot;
 
 
 // TYPES
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // ACQUIRING MUTEXES
 //
 // When acquiring mutexes, if holding multiple ones, they must be done with this partial ordering:
@@ -62,10 +63,10 @@ typedef struct crimpGc_slot_internal* crimpGc_slot;
 // By enforcing this ordering, it prevents deadlocks.
 //
 // ACQUIRING MUTEXES
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // APP THREADS TYPES
 
 enum crimpGc_appThread_state_enum {
@@ -106,10 +107,10 @@ typedef struct crimpGc_appThread_t {
 CRIMP_GC_API extern thread_local crimpGc_appThread_t* _crimpGc_appThread;
 
 // APP THREADS TYPES
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // GC THREAD TYPES
 
 enum crimpGc_gcThread_state_enum {
@@ -139,16 +140,16 @@ typedef struct crimpGc_gcThread_t {
 CRIMP_GC_API extern crimpGc_gcThread_t _crimpGc_gcThread;
 
 // GC THREAD TYPES
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // TESTING
 
 CRIMP_GC_API void print_thread_list();
 CRIMP_GC_API extern bool _crimpGc_console_logging_enabled;
 CRIMP_GC_API extern bool _crimpGc_file_logging_enabled;
-CRIMP_GC_API FILE* _crimpGc_file_logging;
+CRIMP_GC_API extern FILE* _crimpGc_file_logging;
 
 CRIMP_GC_API extern pthread_mutex_t _crimpGc_log_mutex;
 #define log(...) do{  \
@@ -167,10 +168,10 @@ CRIMP_GC_API extern pthread_mutex_t _crimpGc_log_mutex;
 // #define log(...) 
 
 // TESTING
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // INIT
 
 // TODO: global roots list
@@ -181,10 +182,10 @@ CRIMP_GC_API void crimpGc_thread_register();
 CRIMP_GC_API void crimpGc_thread_unregister();
 
 // INIT
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // HANDLES
 
 typedef struct crimpGc_handle_t {
@@ -206,10 +207,10 @@ CRIMP_GC_API crimpGc_handle_t* crimpGc_builder_finish(crimpGc_builder_t* builder
 CRIMP_GC_API void crimpGc_slot_set(crimpGc_slot* dst, const void* src);  // Write barrier
 
 // HANDLES
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // FRAME
 
 // these should probably be macros
@@ -218,10 +219,10 @@ CRIMP_GC_API crimpGc_slot* crimpGc_frame_push();
 CRIMP_GC_API void crimpGc_frame_dealloc(int n);
 
 // FRAME
-/////////////////////////////////
+////////////////////////////////////////
 
 
-/////////////////////////////////
+////////////////////////////////////////
 // COLLECT/MALLOC
 
 CRIMP_GC_API void crimpGc_collect();
@@ -229,7 +230,7 @@ CRIMP_GC_API void crimpGc_malloc(crimp_type_t* type);
 CRIMP_GC_API void crimpGc_malloc_array(crimp_type_t* type, int count);
 
 // COLLECT/MALLOC
-/////////////////////////////////
+////////////////////////////////////////
 
 
 #endif // CRIMP_GC
