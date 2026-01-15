@@ -1,4 +1,4 @@
-#include <assert.h>
+//#include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -32,7 +32,7 @@ void foo()
 
     pthread_t thread;
     int result_code = pthread_create(&thread, NULL, run, NULL);
-    assert(!result_code);
+    crimpGc_assert(!result_code);
     pthread_join(thread, NULL);
     log("joined!");
     log("tl is still %d", tl);

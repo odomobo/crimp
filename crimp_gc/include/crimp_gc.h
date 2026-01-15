@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <threads.h>
+#include <stdlib.h>
 
 // Symbol visibility for shared library
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -21,6 +22,14 @@
 #endif
 
 
+#define crimpGc_assert(condition) do { \
+    if (!(condition)) { \
+        fprintf(stderr, "Assertion failed: ( %s ) in %s on line #%d\n", #condition, __FILE__, __LINE__); \
+        exit(1); \
+    } \
+} while (0)
+
+
 /////////////////////////////////
 // TYPES
 
@@ -35,26 +44,7 @@ typedef struct crimp_type_t {
 typedef struct crimpGc_slot_internal* crimpGc_slot;
 
 
-
 // TYPES
-/////////////////////////////////
-
-
-/////////////////////////////////
-// GC THREAD TYPES
-
-enum crimpGc_gcThread_state_enum {
-    COLLECTOR_NOT_COLLECTING,
-    COLLECTOR_COLLECTING,
-};
-
-typedef struct crimpGc_gcThread_state_t {
-    pthread_mutex_t mutex;
-    enum crimpGc_gcThread_state_enum state;
-} crimpGc_gcThread_state_t;
-
-
-// GC THREAD TYPES
 /////////////////////////////////
 
 
@@ -73,22 +63,62 @@ enum crimpGc_appThread_state_enum {
 
 typedef struct crimpGc_appThread_state_t {
     pthread_mutex_t mutex;
+    pthread_cond_t cv;
     enum crimpGc_appThread_state_enum state;
     bool cleared_for_concurrent_collection;
 } crimpGc_appThread_state_t;
 
+typedef struct crimpGc_appThread_data_t {
+    pthread_mutex_t mutex;
+    // TODO: roots shadow stack
+    // TODO: roots handles
+    // TODO: gray list
+} crimpGc_appThread_data_t;
+
 struct crimpGc_appThread_t;
 
+// Note: need to hold _crimpGc_gcThread.data.mutex to modify appThread itself
 typedef struct crimpGc_appThread_t {
     int thread_id;
     struct crimpGc_appThread_t* next_thread;
-    // TODO: roots shadow stack
-    // TODO: thread local mutex
+
+    crimpGc_appThread_state_t state;
+    crimpGc_appThread_data_t data;
 } crimpGc_appThread_t;
 
 CRIMP_GC_API extern thread_local crimpGc_appThread_t* _crimpGc_appThread;
 
 // APP THREADS TYPES
+/////////////////////////////////
+
+
+/////////////////////////////////
+// GC THREAD TYPES
+
+enum crimpGc_gcThread_state_enum {
+    GCTHREAD_NOT_COLLECTING,
+    GCTHREAD_COLLECTING,
+};
+
+typedef struct crimpGc_gcThread_state_t {
+    pthread_mutex_t mutex;
+    pthread_cond_t cv;
+    enum crimpGc_gcThread_state_enum state;
+} crimpGc_gcThread_state_t;
+
+typedef struct crimpGc_gcThread_data_t {
+    pthread_mutex_t mutex;
+    // TODO: stuff????
+} crimpGc_gcThread_data_t;
+
+typedef struct crimpGc_gcThread_t {
+    crimpGc_gcThread_state_t state;
+    crimpGc_gcThread_data_t data;
+} crimpGc_gcThread_t;
+
+CRIMP_GC_API extern crimpGc_gcThread_t _crimpGc_gcThread;
+
+// GC THREAD TYPES
 /////////////////////////////////
 
 
