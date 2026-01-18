@@ -23,8 +23,8 @@ target_link_libraries(crimpgc PUBLIC
 )
 
 set_target_properties(crimpgc PROPERTIES
-    UNITY_BUILD ON
-    UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
+    #UNITY_BUILD ON
+    #UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
     # OUTPUT_NAME "crimpgc"
     C_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON

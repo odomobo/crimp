@@ -7,28 +7,9 @@
 
 #include "crimpGc.h"
 #include "shadowStack.h"
-
-
-////////////////////////////////////////
-// LOGGING
-
-pthread_mutex_t _crimpGc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
-bool _crimpGc_console_logging_enabled = true;
-bool _crimpGc_file_logging_enabled = false;
-FILE* _crimpGc_file_logging = NULL;
-
-// LOGGING
-////////////////////////////////////////
-
-
-////////////////////////////////////////
-// THREAD GLOBALS
-
-thread_local crimpGc_appThread_t* _crimpGc_appThread = NULL;
-crimpGc_gcThread_t _crimpGc_gcThread;
-
-// THREAD GLOBALS
-////////////////////////////////////////
+#include "appThreads.h"
+#include "gcThread.h"
+#include "logging.h"
 
 
 void print_thread_list()
@@ -64,41 +45,16 @@ static void* _crimpGc_collector(void* arguments) {
     return NULL;
 }
 
-static void _crimpGc_gcThread_state_init(crimpGc_gcThread_state_t* state)
-{
-    int e = pthread_mutex_init(&state->mutex, NULL);
-    crimpGc_assert(e == 0);
-    e = pthread_cond_init(&state->cv, NULL);
-    crimpGc_assert(e == 0);
-    state->state = GCTHREAD_NOT_COLLECTING;
-}
-
-static void _crimpGc_gcThread_data_init(crimpGc_gcThread_data_t* data)
-{
-    int e = pthread_mutex_init(&data->mutex, NULL);
-    crimpGc_assert(e == 0);
-    data->next_thread_id = 0;
-    data->appThread_list = NULL;
-}
-
 void crimpGc_init() {
-	////////////////////////////////////////
-	// LOGGING
-	if (_crimpGc_file_logging_enabled) {
-		char filename[1024];
-		sprintf(filename, "crimpGc_%lu.log", (unsigned long)time(NULL));
-		_crimpGc_file_logging = fopen(filename, "w");
-	}
-	// LOGGING
-	////////////////////////////////////////
+	crimpGc_logging_init();
 
     log("entered");
 
     ////////////////////////////////////////
     // init for gcThread
 
-    _crimpGc_gcThread_state_init(&_crimpGc_gcThread.state);
-    _crimpGc_gcThread_data_init(&_crimpGc_gcThread.data);
+    crimpGc_gcThread_state_init(&_crimpGc_gcThread.state);
+    crimpGc_gcThread_data_init(&_crimpGc_gcThread.data);
 
     // end init for gcThread
     ////////////////////////////////////////
@@ -111,39 +67,21 @@ void crimpGc_init() {
     log("exited");
 }
 
-static void _crimpGc_appThread_state_init(crimpGc_appThread_state_t* state)
-{
-    int e = pthread_mutex_init(&state->mutex, NULL);
-    crimpGc_assert(e == 0);
-    e = pthread_cond_init(&state->cv, NULL);
-    crimpGc_assert(e == 0);
-    state->state = APPTHREAD_NOT_COLLECTING;
-    state->cleared_for_concurrent_collection = false;
-}
-
-static void _crimpGc_appThread_data_init(crimpGc_appThread_data_t* data)
-{
-    int e = pthread_mutex_init(&data->mutex, NULL);
-    crimpGc_assert(e == 0);
-    // TODO: init roots shadow stack
-    // TODO: init handles roots
-    // TODO: init gray lists
-}
-
 void crimpGc_thread_register() {
     log("entered");
-    _crimpGc_appThread = malloc(sizeof(*_crimpGc_appThread));
-    crimpGc_assert(_crimpGc_appThread != NULL); // TODO: better check
+    // TODO: move this logic into appThreads.c
+    crimpGc_appThread = malloc(sizeof(*crimpGc_appThread));
+    crimpGc_assert(crimpGc_appThread != NULL); // TODO: better check
 
     pthread_mutex_lock(&_crimpGc_gcThread.data.mutex);
     {
-        _crimpGc_appThread->thread_id = _crimpGc_gcThread.data.next_thread_id++;
+        crimpGc_appThread->thread_id = _crimpGc_gcThread.data.next_thread_id++;
         // add to threads list
-        _crimpGc_appThread->next_thread = _crimpGc_gcThread.data.appThread_list;
-        _crimpGc_gcThread.data.appThread_list = _crimpGc_appThread;
+        crimpGc_appThread->next_thread = _crimpGc_gcThread.data.appThread_list;
+        _crimpGc_gcThread.data.appThread_list = crimpGc_appThread;
 
-        _crimpGc_appThread_state_init(&_crimpGc_appThread->state);
-        _crimpGc_appThread_data_init(&_crimpGc_appThread->data);
+        crimpGc_appThread_state_init(&crimpGc_appThread->state);
+        crimpGc_appThread_data_init(&crimpGc_appThread->data);
     }
     pthread_mutex_unlock(&_crimpGc_gcThread.data.mutex);
     log("exited");
@@ -161,7 +99,7 @@ void crimpGc_thread_unregister() {
             // we should find the current thread in the list somewhere...
             crimpGc_assert(*t_ref != NULL);
             // if we found the pointer to the current thread, update it to point to the next thread, and break
-            if (*t_ref == _crimpGc_appThread)
+            if (*t_ref == crimpGc_appThread)
             {
                 *t_ref = (*t_ref)->next_thread;
                 break;
@@ -171,7 +109,7 @@ void crimpGc_thread_unregister() {
         }
     }
     pthread_mutex_unlock(&_crimpGc_gcThread.data.mutex);
-    free(_crimpGc_appThread);
-    _crimpGc_appThread = NULL;
+    free(crimpGc_appThread);
+    crimpGc_appThread = NULL;
     log("exited");
 }

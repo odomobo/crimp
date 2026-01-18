@@ -68,108 +68,24 @@ typedef struct crimpGc_grayList_t crimpGc_grayList_t;
 
 
 ////////////////////////////////////////
-// APP THREADS TYPES
-
-enum crimpGc_appThread_state_enum {
-    APPTHREAD_NOT_COLLECTING,
-    APPTHREAD_MARK_ROOTS,
-    APPTHREAD_APPTHREAD_BLOCKED_MARKING_ROOTS,
-    APPTHREAD_AWAITING_CONCURRENT_COLLECTION,
-    APPTHREAD_COLLECTOR_BLOCKED_MARKING_ROOTS,
-    APPTHREAD_CONCURRENT_COLLECTION,
-    APPTHREAD_COLLECTOR_BLOCKED_FLUSHING_GRAY_LISTS,
-};
-
-typedef struct crimpGc_appThread_state_t {
-    pthread_mutex_t mutex; // 1
-    pthread_cond_t cv;
-    enum crimpGc_appThread_state_enum state;
-    bool cleared_for_concurrent_collection;
-} crimpGc_appThread_state_t;
-
-typedef struct crimpGc_appThread_data_t {
-    pthread_mutex_t mutex; // 2
-    // TODO: roots shadow stack
-    // TODO: roots handles
-    // TODO: gray list
-} crimpGc_appThread_data_t;
-
-struct crimpGc_appThread_t;
-
-// Note: need to hold _crimpGc_gcThread.data.mutex to use appThread itself (but not for state or data)
-typedef struct crimpGc_appThread_t {
-    int thread_id;
-    struct crimpGc_appThread_t* next_thread;
-
-    crimpGc_appThread_state_t state;
-    crimpGc_appThread_data_t data;
-} crimpGc_appThread_t;
-
-CRIMPGC_API extern thread_local crimpGc_appThread_t* _crimpGc_appThread;
-
-// APP THREADS TYPES
-////////////////////////////////////////
-
-
-////////////////////////////////////////
-// GC THREAD TYPES
-
-enum crimpGc_gcThread_state_enum {
-    GCTHREAD_NOT_COLLECTING,
-    GCTHREAD_COLLECTING,
-};
-
-typedef struct crimpGc_gcThread_state_t {
-    pthread_mutex_t mutex; // 3
-    pthread_cond_t cv;
-    enum crimpGc_gcThread_state_enum state;
-} crimpGc_gcThread_state_t;
-
-typedef struct crimpGc_gcThread_data_t {
-    pthread_mutex_t mutex; // 4
-    int next_thread_id;
-    crimpGc_appThread_t* appThread_list;
-    pthread_t pthread;
-    // TODO: stuff????
-} crimpGc_gcThread_data_t;
-
-typedef struct crimpGc_gcThread_t {
-    crimpGc_gcThread_state_t state;
-    crimpGc_gcThread_data_t data;
-} crimpGc_gcThread_t;
-
-CRIMPGC_API extern crimpGc_gcThread_t _crimpGc_gcThread;
-
-// GC THREAD TYPES
-////////////////////////////////////////
-
-
-////////////////////////////////////////
 // TESTING
 
 CRIMPGC_API void print_thread_list();
-CRIMPGC_API extern bool _crimpGc_console_logging_enabled;
-CRIMPGC_API extern bool _crimpGc_file_logging_enabled;
-CRIMPGC_API extern FILE* _crimpGc_file_logging;
-
-CRIMPGC_API extern pthread_mutex_t _crimpGc_log_mutex;
-#define log(...) do{  \
-	pthread_mutex_lock(&_crimpGc_log_mutex);  \
-	if (_crimpGc_console_logging_enabled) {  \
-		_crimpGc_appThread != NULL ? fprintf(stderr, " (%02d) [%s] ", _crimpGc_appThread->thread_id, __func__) : fprintf(stderr, " (\?\?) [%s] ", __func__);  \
-		fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");  \
-	}  \
-	if (_crimpGc_file_logging != NULL) {  \
-		_crimpGc_appThread != NULL ? fprintf(_crimpGc_file_logging, " (%02d) [%s] ", _crimpGc_appThread->thread_id, __func__) : fprintf(_crimpGc_file_logging, " (\?\?) [%s] ", __func__);  \
-		fprintf(_crimpGc_file_logging, __VA_ARGS__); fprintf(_crimpGc_file_logging, "\n");  \
-		fflush(_crimpGc_file_logging);  \
-	}  \
-	pthread_mutex_unlock(&_crimpGc_log_mutex);  \
-}while(false)
-// #define log(...) 
 
 // TESTING
 ////////////////////////////////////////
+
+
+////////////////////////////////////////
+// LOGGING
+
+CRIMPGC_API void crimpGc_log(char const* func, char const* fmt, ...);
+#define log(fmt, ...) crimpGc_log(__func__, fmt, ##__VA_ARGS__)
+// #define log(fmt, ...) 
+
+// LOGGING
+////////////////////////////////////////
+
 
 
 ////////////////////////////////////////
