@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(crimp_gc C)
+project(crimpgc C)
 
 # Set C standard
 set(CMAKE_C_STANDARD 17)

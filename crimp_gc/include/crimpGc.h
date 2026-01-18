@@ -1,5 +1,5 @@
-#ifndef CRIMP_GC
-#define CRIMP_GC
+#ifndef CRIMPGC
+#define CRIMPGC
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -9,16 +9,16 @@
 
 // Symbol visibility for shared library
 #if defined(_WIN32) || defined(__CYGWIN__)
-    #ifdef CRIMP_GC_BUILD
-        #define CRIMP_GC_API __declspec(dllexport)
+    #ifdef CRIMPGC_BUILD
+        #define CRIMPGC_API __declspec(dllexport)
     #else
-        #define CRIMP_GC_API __declspec(dllimport)
+        #define CRIMPGC_API __declspec(dllimport)
     #endif
 #else
     #if __GNUC__ >= 4
-        #define CRIMP_GC_API __attribute__((visibility("default")))
+        #define CRIMPGC_API __attribute__((visibility("default")))
     #else
-        #define CRIMP_GC_API
+        #define CRIMPGC_API
     #endif
 #endif
 
@@ -42,8 +42,9 @@ typedef struct crimp_type_t {
 	
 } crimp_type_t;
 
-typedef struct crimpGc_slot_internal* crimpGc_slot;
+typedef struct crimpGc_slot_internal_t* crimpGc_slot_t;
 
+typedef struct crimpGc_grayList_t crimpGc_grayList_t;
 
 // TYPES
 ////////////////////////////////////////
@@ -104,7 +105,7 @@ typedef struct crimpGc_appThread_t {
     crimpGc_appThread_data_t data;
 } crimpGc_appThread_t;
 
-CRIMP_GC_API extern thread_local crimpGc_appThread_t* _crimpGc_appThread;
+CRIMPGC_API extern thread_local crimpGc_appThread_t* _crimpGc_appThread;
 
 // APP THREADS TYPES
 ////////////////////////////////////////
@@ -137,7 +138,7 @@ typedef struct crimpGc_gcThread_t {
     crimpGc_gcThread_data_t data;
 } crimpGc_gcThread_t;
 
-CRIMP_GC_API extern crimpGc_gcThread_t _crimpGc_gcThread;
+CRIMPGC_API extern crimpGc_gcThread_t _crimpGc_gcThread;
 
 // GC THREAD TYPES
 ////////////////////////////////////////
@@ -146,12 +147,12 @@ CRIMP_GC_API extern crimpGc_gcThread_t _crimpGc_gcThread;
 ////////////////////////////////////////
 // TESTING
 
-CRIMP_GC_API void print_thread_list();
-CRIMP_GC_API extern bool _crimpGc_console_logging_enabled;
-CRIMP_GC_API extern bool _crimpGc_file_logging_enabled;
-CRIMP_GC_API extern FILE* _crimpGc_file_logging;
+CRIMPGC_API void print_thread_list();
+CRIMPGC_API extern bool _crimpGc_console_logging_enabled;
+CRIMPGC_API extern bool _crimpGc_file_logging_enabled;
+CRIMPGC_API extern FILE* _crimpGc_file_logging;
 
-CRIMP_GC_API extern pthread_mutex_t _crimpGc_log_mutex;
+CRIMPGC_API extern pthread_mutex_t _crimpGc_log_mutex;
 #define log(...) do{  \
 	pthread_mutex_lock(&_crimpGc_log_mutex);  \
 	if (_crimpGc_console_logging_enabled) {  \
@@ -176,10 +177,10 @@ CRIMP_GC_API extern pthread_mutex_t _crimpGc_log_mutex;
 
 // TODO: global roots list
 
-CRIMP_GC_API void crimpGc_init();
-CRIMP_GC_API void crimpGc_global_roots_register();  // TODO: signature to support global roots
-CRIMP_GC_API void crimpGc_thread_register();
-CRIMP_GC_API void crimpGc_thread_unregister();
+CRIMPGC_API void crimpGc_init();
+CRIMPGC_API void crimpGc_global_roots_register();  // TODO: signature to support global roots
+CRIMPGC_API void crimpGc_thread_register();
+CRIMPGC_API void crimpGc_thread_unregister();
 
 // INIT
 ////////////////////////////////////////
@@ -194,17 +195,17 @@ typedef struct crimpGc_handle_t {
 } crimpGc_handle_t;
 
 typedef struct crimpGc_builder_t {
-    crimpGc_slot slot;
+    crimpGc_slot_t slot;
     int _refcount;
 } crimpGc_builder_t;
 
-CRIMP_GC_API crimpGc_handle_t* crimpGc_handle_acquire(crimpGc_slot* slot);
-CRIMP_GC_API void crimpGc_handle_release(crimpGc_handle_t* handle);
+CRIMPGC_API crimpGc_handle_t* crimpGc_handle_acquire(crimpGc_slot_t* slot);
+CRIMPGC_API void crimpGc_handle_release(crimpGc_handle_t* handle);
 
-CRIMP_GC_API crimpGc_builder_t* crimpGc_builder_create();
-CRIMP_GC_API crimpGc_handle_t* crimpGc_builder_finish(crimpGc_builder_t* builder);  // Invalidates builder
+CRIMPGC_API crimpGc_builder_t* crimpGc_builder_create();
+CRIMPGC_API crimpGc_handle_t* crimpGc_builder_finish(crimpGc_builder_t* builder);  // Invalidates builder
 
-CRIMP_GC_API void crimpGc_slot_set(crimpGc_slot* dst, const void* src);  // Write barrier
+CRIMPGC_API void crimpGc_slot_set(crimpGc_slot_t* dst, const void* src);  // Write barrier
 
 // HANDLES
 ////////////////////////////////////////
@@ -214,9 +215,9 @@ CRIMP_GC_API void crimpGc_slot_set(crimpGc_slot* dst, const void* src);  // Writ
 // FRAME
 
 // these should probably be macros
-CRIMP_GC_API void crimpGc_frame_alloc();
-CRIMP_GC_API crimpGc_slot* crimpGc_frame_push();
-CRIMP_GC_API void crimpGc_frame_dealloc(int n);
+CRIMPGC_API void crimpGc_frame_alloc();
+CRIMPGC_API crimpGc_slot_t* crimpGc_frame_push();
+CRIMPGC_API void crimpGc_frame_dealloc(int n);
 
 // FRAME
 ////////////////////////////////////////
@@ -225,12 +226,12 @@ CRIMP_GC_API void crimpGc_frame_dealloc(int n);
 ////////////////////////////////////////
 // COLLECT/MALLOC
 
-CRIMP_GC_API void crimpGc_collect();
-CRIMP_GC_API void crimpGc_malloc(crimp_type_t* type);
-CRIMP_GC_API void crimpGc_malloc_array(crimp_type_t* type, int count);
+CRIMPGC_API void crimpGc_collect();
+CRIMPGC_API void crimpGc_malloc(crimp_type_t* type);
+CRIMPGC_API void crimpGc_malloc_array(crimp_type_t* type, int count);
 
 // COLLECT/MALLOC
 ////////////////////////////////////////
 
 
-#endif // CRIMP_GC
+#endif // CRIMPGC
