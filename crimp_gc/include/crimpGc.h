@@ -35,11 +35,11 @@
 // TYPES
 
 // TODO: "mark function" type typedef
+typedef void (crimpGc_mark_fp) (void* object);
 
 typedef struct crimp_type_t {
-	// TODO: mark function
+	crimpGc_mark_fp* mark_fn;
 	const size_t size;
-	
 } crimp_type_t;
 
 typedef struct crimpGc_slot_internal_t* crimpGc_slot_t;

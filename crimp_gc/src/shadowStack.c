@@ -59,7 +59,7 @@ static void crimpGc_shadowStack_frame_markRoots(crimpGc_grayList_t* grayList, cr
 
     for (int i = 0; i < frame->roots_count; i++)
     {
-        crimpGc_mark(grayList, &frame->roots[i]);
+        crimpGc_mark(grayList, (crimpGc_typeHeader_t*)frame->roots[i]);
     }
 }
 

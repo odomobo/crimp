@@ -7,17 +7,18 @@
 #include "appThreads.h"
 
 static bool _crimpGc_console_logging_enabled = true;
-static bool _crimpGc_file_logging_enabled = true;
+static bool _crimpGc_file_logging_enabled = false;
 static FILE* _crimpGc_file_logging;
 
 static pthread_mutex_t _crimpGc_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 CRIMPGC_API void crimpGc_log(char const* func, char const* fmt, ...)
 {
+    int e;
     va_list args;
     va_start(args, fmt);
 
-    pthread_mutex_lock(&_crimpGc_log_mutex);
+    e = pthread_mutex_lock(&_crimpGc_log_mutex); crimpGc_assert(!e);
     {
         if (_crimpGc_console_logging_enabled) {
             // since any va_list can only be traversed once, we make a copy for each time we try to use it
@@ -51,7 +52,7 @@ CRIMPGC_API void crimpGc_log(char const* func, char const* fmt, ...)
             va_end(args_copy);
         }
     }
-    pthread_mutex_unlock(&_crimpGc_log_mutex);
+    e = pthread_mutex_unlock(&_crimpGc_log_mutex);  crimpGc_assert(!e);
 
     va_end(args);
 }
