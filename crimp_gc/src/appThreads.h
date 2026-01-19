@@ -48,7 +48,7 @@ extern thread_local crimpGc_appThread_t* crimpGc_appThread;
 ////////////////////////////////////////
 
 
-void crimpGc_appThread_state_init(crimpGc_appThread_state_t* state);
-void crimpGc_appThread_data_init(crimpGc_appThread_data_t* data);
+void crimpGc_appThread_register();
+void crimpGc_appThread_unregister();
 
 #endif // CRIMPGC_APPTHREADS

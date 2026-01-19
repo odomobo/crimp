@@ -45,8 +45,9 @@ extern crimpGc_gcThread_t _crimpGc_gcThread;
 // GC THREAD TYPES
 ////////////////////////////////////////
 
-void crimpGc_gcThread_state_init(crimpGc_gcThread_state_t* state);
-void crimpGc_gcThread_data_init(crimpGc_gcThread_data_t* data);
+
+void crimpGc_gcThread_init();
+//CRIMPGC_API void crimpGc_gcThread_beginCollecting();
 
 
 #endif // CRIMPGC_GCTHREAD

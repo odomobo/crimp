@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <threads.h>
+
 #include "crimpGc.h"
 
 thread_local int tl = 0;
@@ -13,6 +14,8 @@ static void* run(void* arguments)
     log("yep, this seemed to run on another thread!");
     log("tl is %d; setting to 3", tl);
     tl = 3;
+    log("triggering a collection");
+    crimpGc_gcThread_beginCollecting();
     log("pausing...");
     fflush(stdout);
     usleep(200 * 1000); // 200 ms

@@ -94,6 +94,7 @@ CRIMPGC_API void crimpGc_log(char const* func, char const* fmt, ...);
 // TODO: global roots list
 
 CRIMPGC_API void crimpGc_init();
+CRIMPGC_API void crimpGc_gcThread_beginCollecting();
 CRIMPGC_API void crimpGc_global_roots_register();  // TODO: signature to support global roots
 CRIMPGC_API void crimpGc_thread_register();
 CRIMPGC_API void crimpGc_thread_unregister();
