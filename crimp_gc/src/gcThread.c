@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "crimpGc.h"
 #include "gcThread.h"

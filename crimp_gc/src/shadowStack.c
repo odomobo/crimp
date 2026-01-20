@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "internalTypes.h"
 #include "crimpGc.h"
 #include "shadowStack.h"
 #include "mark.h"
@@ -59,7 +60,7 @@ static void crimpGc_shadowStack_frame_markRoots(crimpGc_grayList_t* grayList, cr
 
     for (int i = 0; i < frame->roots_count; i++)
     {
-        crimpGc_mark(grayList, (crimpGc_typeHeader_t*)frame->roots[i]);
+        crimpGc_mark_gray(grayList, (crimpGc_typeHeader_t*)frame->roots[i]);
     }
 }
 

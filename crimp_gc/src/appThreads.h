@@ -2,6 +2,8 @@
 #define CRIMPGC_APPTHREADS
 
 #include <pthread.h>
+#include <stdbool.h>
+#include <threads.h>
 
 
 ////////////////////////////////////////
@@ -30,8 +32,6 @@ typedef struct crimpGc_appThread_data_t {
     // TODO: roots handles
     // TODO: gray list
 } crimpGc_appThread_data_t;
-
-struct crimpGc_appThread_t;
 
 // Note: need to hold _crimpGc_gcThread.data.mutex to use appThread itself (but not for state or data)
 typedef struct crimpGc_appThread_t {

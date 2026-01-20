@@ -22,9 +22,23 @@ target_link_libraries(crimpgc PUBLIC
     Threads::Threads
 )
 
+if(CMAKE_BUILD_TYPE STREQUAL "IWYU")
+    # include what you use
+    find_program(IWYU_PATH NAMES include-what-you-use iwyu REQUIRED)
+    if(IWYU_PATH)
+        set_target_properties(crimpgc PROPERTIES
+            C_INCLUDE_WHAT_YOU_USE ${IWYU_PATH}
+        )
+    endif()
+else()
+    # all non-iwyu builds are unity builds
+    set_target_properties(crimpgc PROPERTIES
+        UNITY_BUILD ON
+        UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
+    )
+endif()
+
 set_target_properties(crimpgc PROPERTIES
-    #UNITY_BUILD ON
-    #UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
     # OUTPUT_NAME "crimpgc"
     C_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON

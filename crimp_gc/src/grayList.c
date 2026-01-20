@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "crimpGc.h"
 #include "grayList.h"
@@ -22,6 +24,7 @@ crimpGc_grayList_t* crimpGc_grayList_create() {
     crimpGc_assert(ret->head != NULL);
     ret->head->count = 0;
     ret->head->next = NULL;
+    return ret;
 }
 
 void crimpGc_grayList_push(crimpGc_grayList_t* grayList, crimpGc_typeHeader_t* obj) {

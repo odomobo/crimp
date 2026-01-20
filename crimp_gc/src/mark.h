@@ -5,6 +5,7 @@
 #include "internalTypes.h"
 
 
-void crimpGc_mark(crimpGc_grayList_t* grayList, crimpGc_typeHeader_t* obj);
+void crimpGc_mark_gray(crimpGc_grayList_t* grayList, crimpGc_typeHeader_t* obj);
+void crimpGc_mark_black(crimpGc_grayList_t* grayList, crimpGc_typeHeader_t* obj);
 
 #endif // CRIMPGC_MARK

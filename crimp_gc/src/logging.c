@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <pthread.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include "crimpGc.h"
 #include "logging.h"

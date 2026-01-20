@@ -1,10 +1,8 @@
 #ifndef CRIMPGC
 #define CRIMPGC
 
-#include <stddef.h>
-#include <stdbool.h>
-#include <threads.h>
-#include <stdlib.h>
+ // needed for exit() in macro
+#include <stdlib.h> // IWYU pragma: keep
 #include <stdio.h>
 
 // Symbol visibility for shared library

@@ -7,8 +7,6 @@
 ////////////////////////////////////////
 // TYPES
 
-struct crimpGc_shadowStack_frame_t;
-
 typedef struct crimpGc_shadowStack_frame_t {
     int roots_count;
     crimpGc_slot_t* roots;

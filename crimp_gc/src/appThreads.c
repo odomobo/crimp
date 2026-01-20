@@ -1,3 +1,4 @@
+#include <stdlib.h>
 
 #include "crimpGc.h"
 #include "appThreads.h"

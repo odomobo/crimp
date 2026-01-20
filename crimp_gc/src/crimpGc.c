@@ -1,12 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <pthread.h>
-#include <threads.h>
-#include <stdatomic.h>
 
 #include "crimpGc.h"
-#include "shadowStack.h"
 #include "appThreads.h"
 #include "gcThread.h"
 #include "logging.h"
