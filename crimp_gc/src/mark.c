@@ -11,6 +11,8 @@ void crimpGc_mark_gray(crimpGc_grayList_t* grayList, crimpGc_typeHeader_t* obj)
     (void)grayList;
     (void)obj;
 
+    // TODO: if obj is NULL, then return early (nothing to do).
+
     // TODO: if obj is white, mark to gray atomically, and add to graylist
 
     // not implemented
