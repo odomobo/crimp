@@ -53,7 +53,7 @@ extern int testCase_index;
 #define test_assert(condition) do { \
     if (!(condition)) { \
         fprintf(stderr, "Test [%s] failed: ( %s ) in %s on line #%d\n", test_current_name, #condition, __FILE__, __LINE__); \
-        exit(1); \
+        exit(20); \
     } \
 } while (0)
 

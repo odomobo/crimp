@@ -11,3 +11,9 @@ TESTCASE(shadowStack_test2) {
 
     tests_passed++;
 }
+
+TESTCASE(shadowStack_popEmpty_yieldsError) {
+    test_assert(1 == 2);
+
+    tests_passed++;
+}

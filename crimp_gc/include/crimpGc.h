@@ -1,7 +1,7 @@
 #ifndef CRIMPGC
 #define CRIMPGC
 
- // needed for exit() in macro
+// needed for exit() in macro
 #include <stdlib.h> // IWYU pragma: keep
 #include <stdio.h>
 
@@ -24,7 +24,7 @@
 #define crimpGc_assert(condition) do { \
     if (!(condition)) { \
         fprintf(stderr, "Assertion failed: ( %s ) in %s on line #%d\n", #condition, __FILE__, __LINE__); \
-        exit(1); \
+        exit(10); \
     } \
 } while (0)
 
