@@ -27,6 +27,7 @@ static void* _crimpGc_gcThread_run(void* arguments) {
         e = pthread_mutex_unlock(&_crimpGc_gcThread.state.mutex); crimpGc_assert(!e);
         log("saw state GCTHREAD_COLLECTING; begin collecting");
 
+        // TODO: collection logic here
         log("should collect... but instead, we're doing nothing!");
 
         log("finished collecting");

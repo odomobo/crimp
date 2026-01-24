@@ -1,51 +1,51 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <threads.h>
+#include <string.h>
 
 #include "crimpGc.h"
+#include "test.h"
 
-thread_local int tl = 0;
+int tests_passed = 0;
+char const *test_current_name;
+bool test_verbose = false;
 
-static void* run(void* arguments)
-{
-    (void)arguments;
-    crimpGc_thread_register();
-    log("yep, this seemed to run on another thread!");
-    log("tl is %d; setting to 3", tl);
-    tl = 3;
-    log("triggering a collection");
-    crimpGc_gcThread_beginCollecting();
-    log("pausing...");
-    fflush(stdout);
-    usleep(200 * 1000); // 200 ms
-    log("done!");
-    print_thread_list();
-    log("tl is still %d", tl);
-    log("ok, worker thread exiting");
-    crimpGc_thread_unregister();
-    return NULL;
+unitTest_t testCases[TEST_CASE_ARRAY_SIZE];
+int testCase_index = 0;
+
+void register_testCase(unitTest_fp fp, char const * name) {
+    if (testCase_index >= TEST_CASE_ARRAY_SIZE) {
+        fprintf(stderr, "Exceeded %d test cases; expand TEST_CASE_ARRAY_SIZE size\n", TEST_CASE_ARRAY_SIZE);
+        exit(1);
+    }
+    unitTest_t testCase = {
+        .fp = fp,
+        .name = name
+    };
+    testCases[testCase_index] = testCase;
+    testCase_index++;
 }
 
-void foo()
-{
-    tl = 1;
-    log("set tl to 1");
-
-    pthread_t thread;
-    int result_code = pthread_create(&thread, NULL, run, NULL);
-    crimpGc_assert(!result_code);
-    pthread_join(thread, NULL);
-    log("joined!");
-    log("tl is still %d", tl);
+void run_all_tests() {
+    for (int i = 0; i < testCase_index; i++)
+    {
+        test_current_name = testCases[i].name;
+        if (test_verbose) { \
+            fprintf(stderr, "[%02d] Beginning test [%s]\n", tests_passed+1, test_current_name);
+        }
+        testCases[i].fp();
+    }
 }
 
-int main(void) {
-    crimpGc_init();
-    crimpGc_thread_register();
-    print_thread_list();
-    foo();
-    print_thread_list();
-    crimpGc_thread_unregister();
+int main(int argc, char **argv) {
+    // Check for verbose flag
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
+            test_verbose = true;
+            break;
+        }
+    }
+
+    run_all_tests();
+
+    printf("Passed: %d tests\n", tests_passed);
     return 0;
 }

@@ -1,4 +1,4 @@
-file(GLOB_RECURSE TEST_CRIMPGC_SOURCES "*.c")
+file(GLOB_RECURSE TEST_CRIMPGC_SOURCES "*.c" "*/*.c")
 
 # Create test executable
 add_executable(test_crimpgc 
@@ -18,8 +18,8 @@ add_custom_target(run_tests
     COMMENT "Running tests..."
 )
 
-set_target_properties(test_crimpgc PROPERTIES
-    UNITY_BUILD ON
-    UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
+#set_target_properties(test_crimpgc PROPERTIES
+    #UNITY_BUILD ON
+    #UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
     # OUTPUT_NAME "test_crimpgc"
-)
+#)
