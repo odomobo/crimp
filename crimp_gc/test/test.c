@@ -29,16 +29,19 @@ void print_usage(char *commandSelf)
     fprintf(stderr, "Usage: %s [list|runCase <index>]\n", commandSelf);
 }
 
+void print_testCase_list() {
+    // Print all tests: index name expected_code
+    for (int i = 0; i < testCase_index; i++) {
+        printf("%d %s %d\n", i, testCases[i].name, testCases[i].expectedReturn);
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2) {
         if (strcmp(argv[1], "list") == 0) {
-            // Print all tests: index name expected_code
-            for (int i = 0; i < testCase_index; i++) {
-                printf("%d %s %d\n", i, testCases[i].name, testCases[i].expectedReturn);
-            }
+            print_testCase_list();
             return 0;
-        }
-        else if (strcmp(argv[1], "runCase") == 0) {
+        } else if (strcmp(argv[1], "runCase") == 0) {
             if (argc < 3) {
                 fprintf(stderr, "Error: runCase requires index argument\n");
                 return 1;
@@ -50,9 +53,8 @@ int main(int argc, char **argv) {
             }
             test_current_name = testCases[index].name;
             testCases[index].fp();
-            return 0;  // Test passed (would have exited with 20 on failure)
-        }
-        else {
+            return 0;
+        } else {
             fprintf(stderr, "Error: unknown command '%s'\n", argv[1]);
             print_usage(argv[0]);
             return 1;
