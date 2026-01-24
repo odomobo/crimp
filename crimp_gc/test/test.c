@@ -5,31 +5,28 @@
 #include "crimpGc_internals.h"
 #include "test.h"
 
-int tests_passed = 0;
 char const *test_current_name;
 
 unitTest_t testCases[TEST_CASE_ARRAY_SIZE];
 int testCase_index = 0;
 
-void register_testCase(unitTest_fp fp, char const * name) {
+void register_testCase(unitTest_fp fp, char const * name, int expectedReturn) {
     if (testCase_index >= TEST_CASE_ARRAY_SIZE) {
         fprintf(stderr, "Exceeded %d test cases; expand TEST_CASE_ARRAY_SIZE size\n", TEST_CASE_ARRAY_SIZE);
         exit(1);
     }
     unitTest_t testCase = {
         .fp = fp,
-        .name = name
+        .name = name,
+        .expectedReturn = expectedReturn
     };
     testCases[testCase_index] = testCase;
     testCase_index++;
 }
 
-void run_all_tests() {
-    for (int i = 0; i < testCase_index; i++)
-    {
-        test_current_name = testCases[i].name;
-        testCases[i].fp();
-    }
+void print_usage(char *commandSelf)
+{
+    fprintf(stderr, "Usage: %s [list|runCase <index>]\n", commandSelf);
 }
 
 int main(int argc, char **argv) {
@@ -37,7 +34,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[1], "list") == 0) {
             // Print all tests: index name expected_code
             for (int i = 0; i < testCase_index; i++) {
-                printf("%d %s 0\n", i, testCases[i].name);
+                printf("%d %s %d\n", i, testCases[i].name, testCases[i].expectedReturn);
             }
             return 0;
         }
@@ -57,14 +54,11 @@ int main(int argc, char **argv) {
         }
         else {
             fprintf(stderr, "Error: unknown command '%s'\n", argv[1]);
-            fprintf(stderr, "Usage: %s [list|runCase <index>]\n", argv[0]);
+            print_usage(argv[0]);
             return 1;
         }
     }
 
-    // Default: run all tests (backwards compatibility)
-    run_all_tests();
-
-    printf("Passed: %d tests\n", tests_passed);
+    print_usage(argv[0]);
     return 0;
 }

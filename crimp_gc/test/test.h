@@ -9,7 +9,9 @@
 #include "crimpGc_internals.h"
 
 
-extern int tests_passed;
+#define SUCCESS 0
+#define ASSERT_FAIL 10
+
 extern char const *test_current_name;
 
 typedef void (*unitTest_fp)();
@@ -17,9 +19,10 @@ typedef void (*unitTest_fp)();
 typedef struct unitTest_t {
     unitTest_fp fp;
     char const * name;
+    int expectedReturn;
 } unitTest_t;
 
-void register_testCase(unitTest_fp testCase, char const * name);
+void register_testCase(unitTest_fp testCase, char const * name, int expectedReturn);
 
 #define TEST_CASE_ARRAY_SIZE 1024
 extern unitTest_t testCases[TEST_CASE_ARRAY_SIZE];
@@ -43,10 +46,10 @@ extern int testCase_index;
         static void f(void)
 #endif
 
-#define TESTCASE(testName) \
+#define TESTCASE(testName, expectedReturn) \
     static void testName(); \
     INITIALIZER(testName##_registration) { \
-        register_testCase(&testName, #testName); \
+        register_testCase(&testName, #testName, expectedReturn); \
     } \
     static void testName()
 
