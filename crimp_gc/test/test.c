@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "crimpGc_internals.h"
 #include "test.h"
 
 int tests_passed = 0;
 char const *test_current_name;
-bool test_verbose = false;
 
 unitTest_t testCases[TEST_CASE_ARRAY_SIZE];
 int testCase_index = 0;
@@ -28,22 +28,41 @@ void run_all_tests() {
     for (int i = 0; i < testCase_index; i++)
     {
         test_current_name = testCases[i].name;
-        if (test_verbose) { \
-            fprintf(stderr, "[%02d] Beginning test [%s]\n", tests_passed+1, test_current_name);
-        }
         testCases[i].fp();
     }
 }
 
 int main(int argc, char **argv) {
-    // Check for verbose flag
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
-            test_verbose = true;
-            break;
+    if (argc >= 2) {
+        if (strcmp(argv[1], "list") == 0) {
+            // Print all tests: index name expected_code
+            for (int i = 0; i < testCase_index; i++) {
+                printf("%d %s 0\n", i, testCases[i].name);
+            }
+            return 0;
+        }
+        else if (strcmp(argv[1], "runCase") == 0) {
+            if (argc < 3) {
+                fprintf(stderr, "Error: runCase requires index argument\n");
+                return 1;
+            }
+            int index = atoi(argv[2]);
+            if (index < 0 || index >= testCase_index) {
+                fprintf(stderr, "Error: index %d out of range [0, %d)\n", index, testCase_index);
+                return 1;
+            }
+            test_current_name = testCases[index].name;
+            testCases[index].fp();
+            return 0;  // Test passed (would have exited with 20 on failure)
+        }
+        else {
+            fprintf(stderr, "Error: unknown command '%s'\n", argv[1]);
+            fprintf(stderr, "Usage: %s [list|runCase <index>]\n", argv[0]);
+            return 1;
         }
     }
 
+    // Default: run all tests (backwards compatibility)
     run_all_tests();
 
     printf("Passed: %d tests\n", tests_passed);

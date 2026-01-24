@@ -11,7 +11,6 @@
 
 extern int tests_passed;
 extern char const *test_current_name;
-extern bool test_verbose;
 
 typedef void (*unitTest_fp)();
 

@@ -18,6 +18,14 @@ add_custom_target(run_tests
     COMMENT "Running tests..."
 )
 
+# Python test runner target
+add_custom_target(run_tests_python
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+    DEPENDS test_crimpgc
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running tests via Python test runner"
+)
+
 #set_target_properties(test_crimpgc PROPERTIES
     #UNITY_BUILD ON
     #UNITY_BUILD_BATCH_SIZE 0  # 0 means unlimited (all in one file)
