@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "crimpGc.h"
-#include "internalTypes.h"
-#include "mark.h"
+#include "crimpGc_internals.h"
 
 
 void crimpGc_mark_gray(crimpGc_grayList_t* grayList, crimpGc_typeHeader_t* obj)

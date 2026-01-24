@@ -1,10 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "internalTypes.h"
-#include "crimpGc.h"
-#include "shadowStack.h"
-#include "mark.h"
+#include "crimpGc_internals.h"
 
 
 ////////////////////////////////////////

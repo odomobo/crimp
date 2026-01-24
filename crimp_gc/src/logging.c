@@ -4,9 +4,7 @@
 #include <stdarg.h>
 #include <time.h>
 
-#include "crimpGc.h"
-#include "logging.h"
-#include "appThreads.h"
+#include "crimpGc_internals.h"
 
 static bool _crimpGc_console_logging_enabled = true;
 static bool _crimpGc_file_logging_enabled = false;

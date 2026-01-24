@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "crimpGc.h"
-#include "grayList.h"
+#include "crimpGc_internals.h"
 
 #define CRIMPGC_GRAYLIST_BLOCK_SIZE 1000
 

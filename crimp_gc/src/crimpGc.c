@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "crimpGc.h"
-#include "appThreads.h"
-#include "gcThread.h"
-#include "logging.h"
+#include "crimpGc_internals.h"
 
 
 // TODO: move to debug?

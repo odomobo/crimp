@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "crimpGc.h"
+#include "crimpGc_internals.h"
 #include "test.h"
 
 int tests_passed = 0;

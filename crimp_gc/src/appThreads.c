@@ -1,8 +1,6 @@
 #include <stdlib.h>
 
-#include "crimpGc.h"
-#include "appThreads.h"
-#include "gcThread.h"
+#include "crimpGc_internals.h"
 
 thread_local crimpGc_appThread_t* crimpGc_appThread = NULL;
 

@@ -6,6 +6,8 @@
 #include <stdio.h> // IWYU pragma: keep
 #include <stdbool.h>
 
+#include "crimpGc_internals.h"
+
 
 extern int tests_passed;
 extern char const *test_current_name;

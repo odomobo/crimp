@@ -1,8 +1,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-#include "crimpGc.h"
-#include "gcThread.h"
+#include "crimpGc_internals.h"
 
 
 crimpGc_gcThread_t _crimpGc_gcThread;
